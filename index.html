@@ -3,7 +3,7 @@
     <meta charset="UTF-8">
     <meta id="appViewportMeta" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="工安危害告知">
     <meta name="application-name" content="工安危害告知">
@@ -37,17 +37,33 @@
             /* Respect device built-in font size and optional user scale multiplier */
             font-size: calc(100% * var(--device-font-scale, 1) * var(--user-font-scale, 1));
             -webkit-text-size-adjust: 100%;
+            background-color: #0f172a;
         }
 
         html, body {
             font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #f1f5f9;
             color: #0f172a;
             max-width: 100vw;
             overflow-x: hidden;
             touch-action: manipulation;
             overscroll-behavior-x: none;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #f1f5f9;
+            min-height: 100dvh;
+        }
+
+        /* Standalone PWA / iPadOS top bar breathing room & solid dark backdrop */
+        .app-top-header {
+            background-color: #0f172a;
+            padding-top: max(var(--safe-top), 6px);
+        }
+        @media (display-mode: standalone) {
+            .app-top-header {
+                padding-top: max(var(--safe-top), 20px);
+            }
         }
 
         /* Convert fixed tiny px classes to rem-relative so they scale smoothly with device font size */
@@ -87,6 +103,38 @@
         input, select, textarea {
             font-size: max(16px, 1rem) !important;
             touch-action: manipulation;
+            box-sizing: border-box;
+        }
+
+        /* Unify text, date, time, and select field heights, widths, and left alignment across iOS/iPadOS & desktop */
+        .tbm-field {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            height: 2.75rem;
+            line-height: 1.5;
+            -webkit-appearance: none;
+            appearance: none;
+            text-align: left;
+        }
+        input[type="date"].tbm-field,
+        input[type="time"].tbm-field {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        input[type="date"].tbm-field::-webkit-date-and-time-value,
+        input[type="time"].tbm-field::-webkit-date-and-time-value {
+            text-align: left;
+            margin: 0;
+        }
+        select.tbm-field {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.1rem 1.1rem;
+            padding-right: 2.25rem !important;
         }
 
         /* Strictly lock fullscreen signature modal against pinch-zoom, double-tap zoom, and scroll drift */
@@ -246,7 +294,7 @@
     </div>
 
     <!-- ==================== CLEAN TOP NAVIGATION BAR ==================== -->
-    <header class="sticky top-0 z-40 bg-slate-900 text-white shadow-md" style="padding-top: var(--safe-top);">
+    <header class="app-top-header sticky top-0 z-40 bg-slate-900 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-3 sm:px-5 min-h-[3.5rem] py-1.5 flex flex-wrap items-center justify-between gap-2">
             <!-- Brand & Auto-Save Dot -->
             <div class="flex items-center gap-2.5 min-w-0">
@@ -424,31 +472,31 @@
                         </div>
 
                         <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                            <div class="sm:col-span-2 lg:col-span-2">
+                            <div class="min-w-0 sm:col-span-2 lg:col-span-2">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">工程 / 作業名稱 <span class="text-rose-500">*</span></label>
-                                <input id="inputProjectName" type="text" placeholder="例如：中美-留樣室外機更換工程" oninput="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputProjectName" type="text" placeholder="例如：中美-留樣室外機更換工程" oninput="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">作業地點 / 區域</label>
-                                <input id="inputLocation" type="text" placeholder="例如：二樓外牆屋簷區" oninput="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputLocation" type="text" placeholder="例如：二樓外牆屋簷區" oninput="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="text-xs font-bold text-slate-600">會議日期</label>
                                     <button type="button" onclick="setTodayDate()" class="text-[11px] font-bold text-blue-600 hover:underline">設為今日</button>
                                 </div>
-                                <input id="inputDate" type="date" onchange="onDateInputChanged()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputDate" type="date" onchange="onDateInputChanged()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="text-xs font-bold text-slate-600">會議時間</label>
                                     <button type="button" onclick="setNowTime()" class="text-[11px] font-bold text-blue-600 hover:underline">現在時間</button>
                                 </div>
-                                <input id="inputTime" type="time" onchange="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputTime" type="time" onchange="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">天氣狀況</label>
-                                <select id="inputWeather" onchange="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <select id="inputWeather" onchange="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                                     <option value="晴天">☀️ 晴天</option>
                                     <option value="多雲">⛅ 多雲</option>
                                     <option value="陰天">☁️ 陰天</option>
@@ -457,13 +505,13 @@
                                     <option value="高溫炎熱">🌡️ 高溫炎熱（防熱傷害）</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">承攬廠商</label>
-                                <input id="inputContractor" type="text" placeholder="例如：孟義工程有限公司" oninput="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputContractor" type="text" placeholder="例如：孟義工程有限公司" oninput="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">會議主持人 / 工安負責</label>
-                                <input id="inputHost" type="text" placeholder="請輸入主持人姓名" oninput="onFormFieldInput()" class="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input id="inputHost" type="text" placeholder="請輸入主持人姓名" oninput="onFormFieldInput()" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
                             </div>
                             <div class="sm:col-span-2 lg:col-span-3">
                                 <label class="block text-xs font-bold text-slate-600 mb-1">今日作業內容摘要（勾選下方題庫會自動帶入，超出自動換行顯示）</label>
