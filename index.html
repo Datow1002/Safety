@@ -2125,6 +2125,7 @@
         let confirmCallback = null;
         let silentRefreshTimer = null;
         let cloudAutoSyncDebounce = null;
+        window._pendingCloudAction = null;
 
         // =========================================================================
         // 4. DATE / TIME & HELPER UTILITIES
@@ -3948,7 +3949,15 @@
                     return;
                 }
 
-                // Route 4: Mobile / Tablet Web Share API -> Choose "Google Drive" directly
+                // Route 4: If OAuth client is configured (e.g. PC browser not logged in or token expired), trigger Google login and auto-upload immediately
+                if (getConfiguredOAuthClientId() && window.location.protocol !== 'file:') {
+                    window._pendingCloudAction = 'uploadPdf';
+                    showToast('🔐 正在開啟 Google 登入視窗，登入完成後將自動上傳 PDF 至您的雲端硬碟...', 'info');
+                    signInWithGoogleAccount(false);
+                    return;
+                }
+
+                // Route 5: Mobile / Tablet Web Share API -> Choose "Google Drive" directly
                 const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
                 if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
                     await navigator.share({
@@ -3959,7 +3968,7 @@
                     showToast('✅ 已開啟系統分享面板（可選擇「雲端硬碟」直接上傳）', 'success');
                 } else {
                     triggerBlobDownload(pdfBlob, filename);
-                    showToast('已下載單頁 A4 PDF！若要一鍵直存雲端，請先點右上角「登入 Google」', 'info');
+                    showToast('已下載單頁 A4 PDF！（若要直存 Google 雲端，請透過 https:// 網址開啟並登入 Google）', 'info');
                 }
             } catch (e) {
                 if (e.name !== 'AbortError') {
@@ -4184,6 +4193,13 @@
                     if (!silentMode) {
                         showToast(`✅ 歡迎 ${window.googleAuthState.user?.name || ''}！已自動連結您的個人雲端硬碟`, 'success');
                     }
+                    const pending = window._pendingCloudAction;
+                    window._pendingCloudAction = null;
+                    if (pending === 'uploadPdf') {
+                        setTimeout(() => exportAndUploadPdfToDrive(), 250);
+                    } else if (pending === 'saveProject') {
+                        setTimeout(() => saveCurrentProjectToDrive(), 250);
+                    }
                 }
             };
             if (remembered?.email) cfg.hint = remembered.email;
@@ -4193,6 +4209,10 @@
         function signInWithGoogleAccount(forceSelectAccount = false) {
             if (isGasNativeMode()) {
                 pullFromCloudNow(false);
+                return;
+            }
+            if (window.location.protocol === 'file:') {
+                showToast('⚠️ Google 登入不支援本機檔案 (file://)，請在電腦瀏覽器開啟你的 GitHub Pages 網址 (https://) 使用雲端上傳！', 'error');
                 return;
             }
             const clientId = getConfiguredOAuthClientId();
@@ -4358,18 +4378,74 @@
             return created.id;
         }
 
-        async function uploadPdfToPersonalDriveOAuth(pdfBlob, filename) {
+        function buildSafeDriveAppProperties(rawObj) {
+            const out = {};
+            const encoder = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+            Object.keys(rawObj || {}).forEach((k) => {
+                let v = String(rawObj[k] ?? '').trim();
+                if (encoder) {
+                    while (v.length > 0 && encoder.encode(k + v).length > 118) {
+                        v = v.slice(0, -1);
+                    }
+                } else {
+                    v = v.slice(0, 30);
+                }
+                out[k] = v;
+            });
+            return out;
+        }
+
+        function buildMultipartRelatedBody(metadataObj, fileBlob, fileMimeType) {
+            const boundary = 'tbm_ky_boundary_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+            const metaPart =
+                `--${boundary}
+` +
+                `Content-Type: application/json; charset=UTF-8
+
+` +
+                `${JSON.stringify(metadataObj)}
+` +
+                `--${boundary}
+` +
+                `Content-Type: ${fileMimeType}
+
+`;
+            const closePart = `
+--${boundary}--`;
+            return {
+                contentType: `multipart/related; boundary=${boundary}`,
+                body: new Blob([metaPart, fileBlob, closePart])
+            };
+        }
+
+        async function parseDriveErrorMessage(res, fallbackMsg) {
+            try {
+                const errJson = await res.json();
+                const detail = errJson?.error?.message || '';
+                return detail ? `${fallbackMsg} (${res.status}: ${detail})` : `${fallbackMsg} (HTTP ${res.status})`;
+            } catch (e) {
+                return `${fallbackMsg} (HTTP ${res.status})`;
+            }
+        }
+
+        async function uploadPdfToPersonalDriveOAuth(pdfBlob, filename, isRetry = false) {
             const folderId = await ensurePersonalDriveFolder();
             const metadata = { name: filename, parents: [folderId], mimeType: 'application/pdf' };
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            form.append('file', pdfBlob, filename);
+            const mp = buildMultipartRelatedBody(metadata, pdfBlob, 'application/pdf');
 
             const res = await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
                 method: 'POST',
-                body: form
+                headers: { 'Content-Type': mp.contentType },
+                body: mp.body
             });
-            if (!res.ok) throw new Error('上傳 PDF 至雲端硬碟失敗');
+            if (res.status === 404 && !isRetry) {
+                // Cached folderId may have been deleted or belong to a switched account -> reset & retry once
+                window.googleAuthState.folderId = null;
+                window.googleAuthState.folderUrl = null;
+                saveGoogleAuthPersistence();
+                return await uploadPdfToPersonalDriveOAuth(pdfBlob, filename, true);
+            }
+            if (!res.ok) throw new Error(await parseDriveErrorMessage(res, '上傳 PDF 至雲端硬碟失敗'));
             return await res.json();
         }
 
@@ -4398,12 +4474,11 @@
                             body: jsonBlob
                         });
                     } else {
-                        const form = new FormData();
-                        form.append('metadata', new Blob([JSON.stringify({ name: PERSONAL_DB_FILENAME, parents: [folderId] })], { type: 'application/json' }));
-                        form.append('file', jsonBlob);
+                        const mp = buildMultipartRelatedBody({ name: PERSONAL_DB_FILENAME, parents: [folderId], mimeType: 'application/json' }, jsonBlob, 'application/json');
                         const cr = await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
                             method: 'POST',
-                            body: form
+                            headers: { 'Content-Type': mp.contentType },
+                            body: mp.body
                         });
                         const cd = await cr.json();
                         if (cd.id) {
@@ -4455,7 +4530,8 @@
             persistAllStateImmediately(false);
 
             if (!isPersonalDriveConnected() && !isGasNativeMode()) {
-                showToast('請先登入 Google 帳號，即可將專案儲存至您的 Google 雲端硬碟', 'info');
+                window._pendingCloudAction = 'saveProject';
+                showToast('🔐 請先完成 Google 登入，登入後將自動把專案存入雲端硬碟', 'info');
                 signInWithGoogleAccount(false);
                 return;
             }
@@ -4481,45 +4557,62 @@
                         if (sd.files?.length > 0) fileId = sd.files[0].id;
                     }
 
-                    const appProps = {
-                        docNo: String(m.docNo || '').slice(0, 60),
-                        projectName: String(m.projectName || '未命名工程').slice(0, 80),
-                        date: String(m.date || ''),
-                        location: String(m.location || '').slice(0, 60),
-                        contractor: String(m.contractor || '').slice(0, 60),
+                    const appProps = buildSafeDriveAppProperties({
+                        docNo: m.docNo || '',
+                        projectName: m.projectName || '未命名工程',
+                        date: m.date || '',
+                        location: m.location || '',
+                        contractor: m.contractor || '',
                         signedCount: String((m.signatures || []).length),
                         hazardCount: String((m.hazards || []).length)
-                    };
+                    });
 
                     const jsonBlob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                    let savedFile = null;
+
                     if (fileId) {
-                        const form = new FormData();
-                        form.append('metadata', new Blob([JSON.stringify({ name: filename, appProperties: appProps })], { type: 'application/json' }));
-                        form.append('file', jsonBlob);
+                        const mpPatch = buildMultipartRelatedBody({ name: filename, appProperties: appProps }, jsonBlob, 'application/json');
                         const ur = await driveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,name,modifiedTime,webViewLink,appProperties`, {
                             method: 'PATCH',
-                            body: form
+                            headers: { 'Content-Type': mpPatch.contentType },
+                            body: mpPatch.body
                         });
-                        if (!ur.ok) throw new Error('更新雲端專案檔失敗');
-                        const ud = await ur.json();
-                        m.cloudProjectFileId = ud.id || fileId;
-                    } else {
-                        const form = new FormData();
-                        form.append('metadata', new Blob([JSON.stringify({
-                            name: filename,
-                            parents: [folderId],
-                            mimeType: 'application/json',
-                            appProperties: appProps
-                        })], { type: 'application/json' }));
-                        form.append('file', jsonBlob);
-                        const cr = await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,webViewLink,appProperties', {
-                            method: 'POST',
-                            body: form
-                        });
-                        if (!cr.ok) throw new Error('建立雲端專案檔失敗');
-                        const cd = await cr.json();
-                        m.cloudProjectFileId = cd.id;
+                        if (ur.ok) {
+                            savedFile = await ur.json();
+                        } else if (ur.status === 404) {
+                            // Existing cloudProjectFileId no longer exists -> fall through to POST new file
+                            fileId = null;
+                        } else {
+                            throw new Error(await parseDriveErrorMessage(ur, '更新雲端專案檔失敗'));
+                        }
                     }
+
+                    if (!savedFile) {
+                        const createOnce = async (targetFolderId) => {
+                            const mpPost = buildMultipartRelatedBody({
+                                name: filename,
+                                parents: [targetFolderId],
+                                mimeType: 'application/json',
+                                appProperties: appProps
+                            }, jsonBlob, 'application/json');
+                            return await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,webViewLink,appProperties', {
+                                method: 'POST',
+                                headers: { 'Content-Type': mpPost.contentType },
+                                body: mpPost.body
+                            });
+                        };
+                        let cr = await createOnce(folderId);
+                        if (cr.status === 404) {
+                            window.googleAuthState.folderId = null;
+                            window.googleAuthState.folderUrl = null;
+                            saveGoogleAuthPersistence();
+                            const freshFolderId = await ensurePersonalDriveFolder();
+                            cr = await createOnce(freshFolderId);
+                        }
+                        if (!cr.ok) throw new Error(await parseDriveErrorMessage(cr, '建立雲端專案檔失敗'));
+                        savedFile = await cr.json();
+                    }
+                    m.cloudProjectFileId = savedFile.id;
 
                     persistAllStateImmediately(false);
                     await syncDatabaseToCloud(true);
