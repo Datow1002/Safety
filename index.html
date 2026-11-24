@@ -26,6 +26,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- QR Code Generator for Guest Mobile Signing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- PeerJS (Zero-Backend WebRTC Direct Transfer for GitHub Pages) -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <!-- Google Identity Services (Commercial OAuth 2.0) -->
     <script src="https://accounts.google.com/gsi/client" async="" defer=""></script>
 
@@ -1107,8 +1109,8 @@
                                     <i class="fa-solid fa-clipboard-check text-amber-400 mr-1.5"></i>已完成簽名人員
                                 </h3>
                                 <div class="flex items-center gap-1.5">
-                                    <button type="button" onclick="pollGuestSignaturesNow(false)" class="bg-white/15 hover:bg-white/25 text-white font-bold px-2 py-0.5 rounded-lg text-[11px] transition" title="立即接收工班手機上傳的簽名">
-                                        <i class="fa-solid fa-rotate mr-1"></i>收件
+                                    <button type="button" onclick="openGuestQrModal()" class="bg-emerald-500/25 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-lg text-[11px] transition" title="開啟 QR Code 讓工班手機掃碼簽名">
+                                        <i class="fa-solid fa-qrcode mr-1"></i>掃碼自簽
                                     </button>
                                     <span id="signedCountPill" class="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-full text-xs">共 1 人</span>
                                 </div>
@@ -1585,7 +1587,7 @@
         </div>
     </div>
 
-    <!-- ==================== GUEST QR CODE SIGNING MODAL (HOST SIDE) ==================== -->
+    <!-- ==================== GUEST QR CODE SIGNING MODAL (HOST SIDE - ZERO-BACKEND P2P) ==================== -->
     <div id="guestQrModal" class="fixed inset-0 z-[113] hidden items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
         <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col animate-fadeIn">
             <div class="px-5 py-3.5 bg-gradient-to-r from-slate-900 to-emerald-950 text-white flex items-center justify-between shrink-0">
@@ -1594,20 +1596,20 @@
                         <i class="fa-solid fa-qrcode text-amber-400"></i>
                         <span>施工人員 (GUEST) 掃碼自簽 QR Code</span>
                     </h3>
-                    <p id="qrModalDocSubtitle" class="text-[11px] text-slate-300 mt-0.5">掃描後免登入即可用自己的手機簽名並回傳至本張表單</p>
+                    <p id="qrModalDocSubtitle" class="text-[11px] text-slate-300 mt-0.5">純 GitHub Pages 免後台直連｜工班掃碼免登入、簽完即時傳回本表單</p>
                 </div>
                 <button type="button" onclick="closeGuestQrModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm shrink-0">✕</button>
             </div>
 
             <div class="p-4 space-y-3.5 overflow-y-auto flex-1">
-                <!-- Relay Status Banner -->
-                <div id="qrRelayStatusBanner" class="rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border-emerald-200 text-emerald-900">
+                <!-- P2P Direct Connection Status Banner -->
+                <div id="qrRelayStatusBanner" class="rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-amber-50 border-amber-200 text-amber-950">
                     <div class="flex items-center gap-2 min-w-0 flex-1">
-                        <span id="qrRelayDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-                        <span id="qrRelayStatusText" class="font-bold leading-snug">即時回傳連線就緒</span>
+                        <span id="qrRelayDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span id="qrRelayStatusText" class="font-bold leading-snug">正在建立免後台即時直連通道...</span>
                     </div>
-                    <button type="button" onclick="pollGuestSignaturesNow(false)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl text-xs shrink-0 transition">
-                        <i class="fa-solid fa-rotate mr-1"></i>立即收件
+                    <button type="button" onclick="reconnectHostPeerSession()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 font-black px-3 py-1.5 rounded-xl text-xs shrink-0 transition">
+                        <i class="fa-solid fa-rotate mr-1"></i>重連通道
                     </button>
                 </div>
 
@@ -1618,7 +1620,7 @@
                         <span id="qrDocNoTag" class="ml-1.5 font-mono text-[11px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg"></span>
                     </div>
                     <div id="guestQrCodeBox" class="bg-white p-3.5 rounded-2xl border-2 border-slate-200 shadow-sm min-h-[210px] min-w-[210px] flex items-center justify-center"></div>
-                    <p class="text-[11px] text-slate-500 font-semibold">請施工人員打開手機相機掃描上方 QR Code，填寫姓名並手寫簽名上傳</p>
+                    <p class="text-[11px] text-slate-500 font-semibold leading-snug">請施工人員用手機相機掃描上方 QR Code，簽完即自動傳回。<br><span class="text-amber-700">（等待工班簽名期間，請保持此視窗開啟不關閉）</span></p>
                     <div class="flex flex-wrap items-center justify-center gap-2 w-full pt-1">
                         <button type="button" onclick="copyGuestSignLink()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 font-black px-3.5 py-2 rounded-xl text-xs transition">
                             <i class="fa-solid fa-link mr-1"></i>複製簽名連結（傳 LINE）
@@ -1631,37 +1633,20 @@
 
                 <!-- Live Received Signatures Counter -->
                 <div class="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-black text-slate-800"><i class="fa-solid fa-users-viewfinder text-blue-600 mr-1"></i>本張表單已簽名人員（自動同步中）</span>
-                        <span id="qrModalSignedCount" class="text-xs font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full">0 人</span>
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-black text-slate-800"><i class="fa-solid fa-users-viewfinder text-blue-600 mr-1"></i>本張表單已簽名人員（即時接收中）</span>
+                        <div class="flex items-center gap-1.5">
+                            <span id="qrConnectedPeersBadge" class="text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">0 台連線</span>
+                            <span id="qrModalSignedCount" class="text-xs font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full">0 人</span>
+                        </div>
                     </div>
                     <div id="qrModalSignedChips" class="flex flex-wrap gap-1.5 text-xs"></div>
                 </div>
 
-                <!-- Quick Setup for Automatic Cloud Return (Apps Script Relay) -->
-                <details id="qrGasSetupDetails" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs space-y-2.5">
-                    <summary class="font-black text-slate-800 cursor-pointer flex items-center justify-between">
-                        <span><i class="fa-solid fa-bolt text-amber-500 mr-1.5"></i>設定「自動即時回傳」中繼網址（Apps Script）</span>
-                        <span class="text-[11px] text-blue-600 font-bold">展開設定 ▾</span>
-                    </summary>
-                    <div class="pt-2 space-y-2.5 text-slate-600 leading-relaxed">
-                        <p>只要在你的 Google Apps Script 貼上最新版 <code>Code.gs</code> 並部署為「執行身分：<strong>我</strong>、誰可以存取：<strong>所有人</strong>」，把 <code>/exec</code> 網址貼到下方，工班用自己手機掃碼簽完名就會<strong>自動飛回這張表單</strong>（免登入 Google）。</p>
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="copyGasNativeCodeGs()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 font-black px-3 py-2 rounded-xl text-xs">
-                                <i class="fa-solid fa-code mr-1"></i>複製最新版 Code.gs（含賓客回傳 API）
-                            </button>
-                        </div>
-                        <div class="flex gap-2">
-                            <input id="qrGasUrlInput" type="text" placeholder="貼上 https://script.google.com/macros/s/xxxx/exec" class="tbm-field flex-1 bg-white border border-slate-300 rounded-xl px-3 font-mono text-slate-900">
-                            <button type="button" onclick="saveGasUrlFromQrModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 rounded-xl text-xs shrink-0">儲存並更新 QR</button>
-                        </div>
-                    </div>
-                </details>
-
-                <!-- Offline Return Code Import Fallback -->
+                <!-- Offline Return Code Import Fallback (if strict firewall blocks P2P) -->
                 <details class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs space-y-2">
                     <summary class="font-bold text-slate-700 cursor-pointer">
-                        <i class="fa-solid fa-paste text-slate-500 mr-1.5"></i>離線備援：手動貼上工班「簽名回傳碼」匯入
+                        <i class="fa-solid fa-paste text-slate-500 mr-1.5"></i>備援方案：若現場訊號受限，貼上工班「簽名回傳碼」匯入
                     </summary>
                     <div class="pt-2 flex gap-2">
                         <input id="offlineGuestCodeInput" type="text" placeholder="貼上工班手機產生的 TBM_SIG:... 回傳碼" class="tbm-field flex-1 bg-white border border-slate-300 rounded-xl px-3 font-mono text-slate-900">
@@ -1691,6 +1676,12 @@
         </header>
 
         <main class="flex-1 w-full max-w-xl mx-auto px-3.5 py-4 space-y-3.5 pb-10">
+            <!-- Live P2P Return Status Strip -->
+            <div id="guestConnBanner" class="rounded-2xl border px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 bg-amber-50 border-amber-200 text-amber-900">
+                <span id="guestConnDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                <span id="guestConnText">正在連線至現場主辦表單...</span>
+            </div>
+
             <!-- Meeting Info Summary Card -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-2">
                 <div class="flex items-center justify-between gap-2">
@@ -4974,13 +4965,30 @@ function deleteProjectFile(req) {
         }
 
         // =========================================================================
-        // 14B. GUEST QR CODE SIGNING & REAL-TIME RETURN ENGINE
+        // 14B. ZERO-BACKEND GUEST QR CODE SIGNING (WebRTC PeerJS P2P + BroadcastChannel)
         // =========================================================================
-        let guestPollInterval = null;
+        let hostPeer = null;
+        let hostPeerId = null;
+        let hostActiveConns = new Map();
+        let hostBroadcastChannel = null;
+
+        let guestPeer = null;
+        let guestConn = null;
+        let guestBroadcastChannel = null;
         let guestSigCanvas = null;
         let guestSigCtx = null;
         let guestHasInk = false;
         let guestPageParams = null;
+
+        const PEER_ICE_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
+                ]
+            }
+        };
 
         function getCleanBasePageUrl() {
             const url = new URL(window.location.href);
@@ -4989,55 +4997,56 @@ function deleteProjectFile(req) {
             return url.toString();
         }
 
+        function getCurrentMeetingBriefObject() {
+            const m = window.currentMeeting || {};
+            return {
+                docNo: m.docNo || '',
+                projectName: m.projectName || '',
+                location: m.location || '',
+                date: m.date || '',
+                time: m.time || '',
+                contractor: m.contractor || '',
+                hazards: m.hazards || [],
+                measures: m.measures || [],
+                ppe: m.ppe || [],
+                notes: m.notes || ''
+            };
+        }
+
         function buildGuestSigningUrl() {
             const m = window.currentMeeting;
-            const gasUrl = getConfiguredGasUrl();
             const params = new URLSearchParams();
             params.set('guest', '1');
             params.set('docNo', m.docNo || '');
+            if (hostPeerId) params.set('peer', hostPeerId);
             if (m.projectName) params.set('proj', m.projectName.slice(0, 32));
             if (m.location) params.set('loc', m.location.slice(0, 24));
             if (m.date) params.set('date', m.date);
             if (m.contractor) params.set('contractor', m.contractor.slice(0, 24));
-            if (isValidGasUrl(gasUrl)) params.set('gas', gasUrl);
             return `${getCleanBasePageUrl()}?${params.toString()}`;
         }
 
-        async function pushMeetingBriefToGas(gasUrl) {
-            if (!isValidGasUrl(gasUrl) || !window.currentMeeting) return;
-            const m = window.currentMeeting;
-            const payload = {
-                action: 'saveMeetingBrief',
-                docNo: m.docNo,
-                brief: {
-                    docNo: m.docNo,
-                    projectName: m.projectName || '',
-                    location: m.location || '',
-                    date: m.date || '',
-                    time: m.time || '',
-                    contractor: m.contractor || '',
-                    hazards: m.hazards || [],
-                    measures: m.measures || [],
-                    ppe: m.ppe || [],
-                    notes: m.notes || ''
-                }
-            };
-            try {
-                await fetch(gasUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-            } catch (e) {
-                try {
-                    await fetch(gasUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload)
-                    });
-                } catch (err) {}
+        function updateHostQrStatus(state, message) {
+            const banner = document.getElementById('qrRelayStatusBanner');
+            const dot = document.getElementById('qrRelayDot');
+            const text = document.getElementById('qrRelayStatusText');
+            if (!banner || !dot || !text) return;
+            if (state === 'ready') {
+                banner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border-emerald-200 text-emerald-900';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
+            } else if (state === 'error') {
+                banner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-rose-50 border-rose-200 text-rose-900';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0';
+            } else {
+                banner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-amber-50 border-amber-200 text-amber-950';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0';
             }
+            text.textContent = message;
+        }
+
+        function updateConnectedPeersBadge() {
+            const badge = document.getElementById('qrConnectedPeersBadge');
+            if (badge) badge.textContent = `${hostActiveConns.size} 台連線`;
         }
 
         function renderGuestQrCodeNow() {
@@ -5045,29 +5054,9 @@ function deleteProjectFile(req) {
             const box = document.getElementById('guestQrCodeBox');
             const titleEl = document.getElementById('qrProjectTitle');
             const docEl = document.getElementById('qrDocNoTag');
-            const gasInput = document.getElementById('qrGasUrlInput');
-            const statusBanner = document.getElementById('qrRelayStatusBanner');
-            const statusDot = document.getElementById('qrRelayDot');
-            const statusText = document.getElementById('qrRelayStatusText');
-            const setupDetails = document.getElementById('qrGasSetupDetails');
 
             if (titleEl) titleEl.textContent = m.projectName || '（未命名工程）';
             if (docEl) docEl.textContent = m.docNo;
-            if (gasInput) gasInput.value = getConfiguredGasUrl();
-
-            const gasUrl = getConfiguredGasUrl();
-            const hasRelay = isValidGasUrl(gasUrl);
-            if (hasRelay) {
-                statusBanner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border-emerald-200 text-emerald-900';
-                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
-                statusText.textContent = '已連線自動回傳通道！工班掃碼簽完名後，約 3～5 秒自動回傳到本張表單';
-                if (setupDetails) setupDetails.open = false;
-            } else {
-                statusBanner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-amber-50 border-amber-200 text-amber-950';
-                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0';
-                statusText.textContent = '尚未設定自動回傳網址（目前為離線回傳碼模式）。展開下方貼上 Apps Script 網址即可全自動回傳';
-                if (setupDetails) setupDetails.open = true;
-            }
 
             const qrUrl = buildGuestSigningUrl();
             if (box) {
@@ -5086,6 +5075,7 @@ function deleteProjectFile(req) {
                 }
             }
             renderQrModalSignedChips();
+            updateConnectedPeersBadge();
         }
 
         function renderQrModalSignedChips() {
@@ -5107,6 +5097,150 @@ function deleteProjectFile(req) {
             `).join('');
         }
 
+        function acceptIncomingGuestSignature(sig) {
+            if (!sig || !sig.name || !sig.signatureDataUrl) return false;
+            const docTarget = sig.docNo || window.currentMeeting.docNo;
+            const targetMeeting = (docTarget === window.currentMeeting.docNo)
+                ? window.currentMeeting
+                : window.savedMeetings.find(m => m.docNo === docTarget) || window.currentMeeting;
+
+            const existingIds = new Set((targetMeeting.signatures || []).map(s => s.id));
+            if (sig.id && existingIds.has(sig.id)) return true;
+
+            targetMeeting.isDefaultUnmodified = false;
+            targetMeeting.signatures.push({
+                id: sig.id || ('gsig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                name: sig.name,
+                contractor: sig.contractor || targetMeeting.contractor || '-',
+                role: sig.role || '施工人員',
+                time: sig.time || getLocalTimeString(),
+                signatureDataUrl: sig.signatureDataUrl
+            });
+
+            if (document.getElementById('autoSaveWorkerToRoster')?.checked) {
+                if (!window.workerRoster.some(w => w.name === sig.name)) {
+                    window.workerRoster.push({ name: sig.name, contractor: sig.contractor || '', role: sig.role || '施工人員' });
+                }
+            }
+
+            if (targetMeeting === window.currentMeeting) {
+                renderRosterChips();
+                renderSignedWorkersList();
+                renderQrModalSignedChips();
+            }
+            persistAllStateImmediately(true);
+            showToast(`📥 已即時接收「${sig.name}」的手機簽名！`, 'success');
+            return true;
+        }
+
+        function initHostBroadcastChannel() {
+            if (typeof BroadcastChannel === 'undefined') return;
+            try {
+                if (hostBroadcastChannel) hostBroadcastChannel.close();
+                hostBroadcastChannel = new BroadcastChannel('tbm_guest_direct_v6');
+                hostBroadcastChannel.onmessage = (ev) => {
+                    const msg = ev.data;
+                    if (!msg) return;
+                    if (msg.type === 'request_brief' && msg.docNo === window.currentMeeting?.docNo) {
+                        hostBroadcastChannel.postMessage({ type: 'meeting_brief', docNo: msg.docNo, brief: getCurrentMeetingBriefObject() });
+                    } else if (msg.type === 'guest_sig' && msg.signature) {
+                        const ok = acceptIncomingGuestSignature(msg.signature);
+                        if (ok) {
+                            hostBroadcastChannel.postMessage({ type: 'sig_ack', id: msg.signature.id, docNo: msg.signature.docNo });
+                        }
+                    }
+                };
+            } catch (e) {}
+        }
+
+        function startHostPeerSession(forceNew = false) {
+            initHostBroadcastChannel();
+
+            if (!forceNew && hostPeer && !hostPeer.destroyed && !hostPeer.disconnected && hostPeerId) {
+                updateHostQrStatus('ready', '免後台直連通道已就緒！工班掃碼簽完名會即時傳回本張表單');
+                renderGuestQrCodeNow();
+                return;
+            }
+
+            if (hostPeer && !hostPeer.destroyed) {
+                try { hostPeer.destroy(); } catch (e) {}
+            }
+            hostActiveConns.clear();
+            updateConnectedPeersBadge();
+
+            if (typeof Peer === 'undefined') {
+                hostPeerId = null;
+                updateHostQrStatus('error', '直連元件載入失敗（請確認網路）；仍可使用離線回傳碼備援');
+                renderGuestQrCodeNow();
+                return;
+            }
+
+            const cleanDoc = (window.currentMeeting?.docNo || 'TBM').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+            const randSuffix = Math.random().toString(36).slice(2, 6);
+            const desiredId = `tbm-${cleanDoc}-${randSuffix}`;
+
+            updateHostQrStatus('connecting', '正在建立免後台點對點直連通道...');
+            try {
+                hostPeer = new Peer(desiredId, PEER_ICE_CONFIG);
+
+                hostPeer.on('open', (id) => {
+                    hostPeerId = id;
+                    updateHostQrStatus('ready', '免後台直連通道已就緒！工班掃碼簽完名會即時傳回本張表單');
+                    renderGuestQrCodeNow();
+                });
+
+                hostPeer.on('connection', (conn) => {
+                    hostActiveConns.set(conn.peer, conn);
+                    updateConnectedPeersBadge();
+
+                    conn.on('open', () => {
+                        try {
+                            conn.send({ type: 'meeting_brief', brief: getCurrentMeetingBriefObject() });
+                        } catch (e) {}
+                    });
+
+                    conn.on('data', (msg) => {
+                        if (!msg) return;
+                        if (msg.type === 'request_brief') {
+                            try { conn.send({ type: 'meeting_brief', brief: getCurrentMeetingBriefObject() }); } catch (e) {}
+                        } else if (msg.type === 'guest_sig' && msg.signature) {
+                            const ok = acceptIncomingGuestSignature(msg.signature);
+                            if (ok) {
+                                try { conn.send({ type: 'sig_ack', id: msg.signature.id }); } catch (e) {}
+                            }
+                        }
+                    });
+
+                    conn.on('close', () => {
+                        hostActiveConns.delete(conn.peer);
+                        updateConnectedPeersBadge();
+                    });
+                    conn.on('error', () => {
+                        hostActiveConns.delete(conn.peer);
+                        updateConnectedPeersBadge();
+                    });
+                });
+
+                hostPeer.on('disconnected', () => {
+                    updateHostQrStatus('connecting', '通道暫時中斷，正在嘗試自動重連...');
+                    try { hostPeer.reconnect(); } catch (e) {}
+                });
+
+                hostPeer.on('error', () => {
+                    updateHostQrStatus('error', '直連通道連線異常，請點右側「重連通道」或使用離線回傳碼備援');
+                    renderGuestQrCodeNow();
+                });
+            } catch (e) {
+                updateHostQrStatus('error', '無法建立直連通道，請使用下方離線回傳碼備援');
+                renderGuestQrCodeNow();
+            }
+        }
+
+        function reconnectHostPeerSession() {
+            startHostPeerSession(true);
+            showToast('正在重新建立直連通道...', 'info');
+        }
+
         function openGuestQrModal() {
             window.currentMeeting.isDefaultUnmodified = false;
             persistAllStateImmediately(false);
@@ -5115,16 +5249,7 @@ function deleteProjectFile(req) {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             renderGuestQrCodeNow();
-
-            const gasUrl = getConfiguredGasUrl();
-            if (isValidGasUrl(gasUrl)) {
-                pushMeetingBriefToGas(gasUrl);
-                pollGuestSignaturesNow(true);
-                if (guestPollInterval) clearInterval(guestPollInterval);
-                guestPollInterval = setInterval(() => {
-                    pollGuestSignaturesNow(true);
-                }, 4000);
-            }
+            startHostPeerSession(false);
         }
 
         function closeGuestQrModal() {
@@ -5132,10 +5257,6 @@ function deleteProjectFile(req) {
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-            }
-            if (guestPollInterval) {
-                clearInterval(guestPollInterval);
-                guestPollInterval = null;
             }
         }
 
@@ -5147,70 +5268,6 @@ function deleteProjectFile(req) {
 
         function openGuestPreviewInNewTab() {
             window.open(buildGuestSigningUrl(), '_blank', 'noopener');
-        }
-
-        function saveGasUrlFromQrModal() {
-            const val = document.getElementById('qrGasUrlInput')?.value.trim() || '';
-            if (val && !isValidGasUrl(val)) {
-                showToast('網址格式不正確！請確認結尾為 /exec 的 Apps Script 網頁應用程式網址', 'error');
-                return;
-            }
-            try { localStorage.setItem(STORAGE_KEYS.GAS_URL, val); } catch (e) {}
-            const settingsInput = document.getElementById('gasUrlInput');
-            if (settingsInput) settingsInput.value = val;
-            renderGuestQrCodeNow();
-            if (isValidGasUrl(val)) {
-                pushMeetingBriefToGas(val);
-                pollGuestSignaturesNow(true);
-                if (guestPollInterval) clearInterval(guestPollInterval);
-                guestPollInterval = setInterval(() => pollGuestSignaturesNow(true), 4000);
-                showToast('✅ 已啟用自動即時回傳，QR Code 已同步更新！', 'success');
-            } else {
-                showToast('已清除中繼網址，切換為離線回傳碼模式', 'info');
-            }
-        }
-
-        async function pollGuestSignaturesNow(silent = false) {
-            const gasUrl = getConfiguredGasUrl();
-            if (!isValidGasUrl(gasUrl)) {
-                if (!silent) showToast('尚未設定自動回傳網址，請點「工班掃碼簽名 QR」進行設定', 'info');
-                return;
-            }
-            const docNo = window.currentMeeting?.docNo;
-            if (!docNo) return;
-            try {
-                const sep = gasUrl.includes('?') ? '&' : '?';
-                const res = await fetch(`${gasUrl}${sep}action=getGuestSigs&docNo=${encodeURIComponent(docNo)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('無法連線至中繼後台');
-                const data = await res.json();
-                const incoming = Array.isArray(data?.signatures) ? data.signatures : [];
-                let addedCount = 0;
-                const existingIds = new Set((window.currentMeeting.signatures || []).map(s => s.id));
-                incoming.forEach(sig => {
-                    if (sig && sig.id && sig.name && sig.signatureDataUrl && !existingIds.has(sig.id)) {
-                        window.currentMeeting.isDefaultUnmodified = false;
-                        window.currentMeeting.signatures.push(sig);
-                        existingIds.add(sig.id);
-                        addedCount++;
-                        if (document.getElementById('autoSaveWorkerToRoster')?.checked) {
-                            if (!window.workerRoster.some(w => w.name === sig.name)) {
-                                window.workerRoster.push({ name: sig.name, contractor: sig.contractor || '', role: sig.role || '施工人員' });
-                            }
-                        }
-                    }
-                });
-                if (addedCount > 0) {
-                    renderRosterChips();
-                    renderSignedWorkersList();
-                    renderQrModalSignedChips();
-                    persistAllStateImmediately(true);
-                    showToast(`📥 已自動接收 ${addedCount} 筆工班手機簽名！`, 'success');
-                } else if (!silent) {
-                    showToast('目前尚無新的工班手機簽名', 'info');
-                }
-            } catch (e) {
-                if (!silent) showToast('接收賓客簽名失敗：' + (e.message || e), 'error');
-            }
         }
 
         function importOfflineGuestCode() {
@@ -5225,36 +5282,57 @@ function deleteProjectFile(req) {
                 const jsonStr = decodeURIComponent(escape(atob(cleaned)));
                 const sig = JSON.parse(jsonStr);
                 if (!sig || !sig.name || !sig.signatureDataUrl) throw new Error('資料不完整');
-                if (sig.docNo && sig.docNo !== window.currentMeeting.docNo) {
-                    showToast(`提醒：此簽名屬於單號 ${sig.docNo}，已匯入目前表單`, 'info');
-                }
-                const exists = (window.currentMeeting.signatures || []).some(s => s.id === sig.id);
-                if (!exists) {
-                    window.currentMeeting.isDefaultUnmodified = false;
-                    window.currentMeeting.signatures.push({
-                        id: sig.id || ('gsig_' + Date.now()),
-                        name: sig.name,
-                        contractor: sig.contractor || window.currentMeeting.contractor || '-',
-                        role: sig.role || '施工人員',
-                        time: sig.time || getLocalTimeString(),
-                        signatureDataUrl: sig.signatureDataUrl
-                    });
-                    renderRosterChips();
-                    renderSignedWorkersList();
-                    renderQrModalSignedChips();
-                    persistAllStateImmediately(true);
-                }
+                acceptIncomingGuestSignature(sig);
                 inp.value = '';
-                showToast(`✅ 已匯入「${sig.name}」的簽名！`, 'success');
             } catch (e) {
                 showToast('回傳碼格式無效，請確認是否完整複製', 'error');
             }
         }
 
-        // ---- GUEST MOBILE PAGE INITIALIZATION & DRAWING ----
+        // ---- GUEST MOBILE PAGE INITIALIZATION & P2P DIRECT RETURN ----
         function isGuestModeUrl() {
             const p = new URLSearchParams(window.location.search);
             return p.get('guest') === '1' && !!p.get('docNo');
+        }
+
+        function updateGuestConnUi(state, msg) {
+            const banner = document.getElementById('guestConnBanner');
+            const dot = document.getElementById('guestConnDot');
+            const text = document.getElementById('guestConnText');
+            if (!banner || !dot || !text) return;
+            if (state === 'connected') {
+                banner.className = 'rounded-2xl border px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 bg-emerald-50 border-emerald-200 text-emerald-900';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
+            } else if (state === 'offline') {
+                banner.className = 'rounded-2xl border px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 bg-slate-100 border-slate-300 text-slate-700';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0';
+            } else {
+                banner.className = 'rounded-2xl border px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 bg-amber-50 border-amber-200 text-amber-900';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0';
+            }
+            text.textContent = msg;
+        }
+
+        function applyGuestMeetingBrief(b) {
+            if (!b) return;
+            if (b.projectName) document.getElementById('guestProjectName').textContent = b.projectName;
+            if (b.location) document.getElementById('guestLocation').textContent = b.location;
+            if (b.date) document.getElementById('guestMeetingDate').textContent = b.date;
+            if (b.contractor) {
+                document.getElementById('guestDefaultContractor').textContent = b.contractor;
+                if (!document.getElementById('guestInputContractor').value) {
+                    document.getElementById('guestInputContractor').value = b.contractor;
+                }
+            }
+            const briefEl = document.getElementById('guestBriefContent');
+            if (briefEl) {
+                const hazHtml = (b.hazards || []).map((h, i) => `<div>${i + 1}. ${escapeHtml(h)}</div>`).join('');
+                const ppeHtml = (b.ppe || []).join('、');
+                briefEl.innerHTML = `
+                    ${ppeHtml ? `<div><strong>應戴防護具：</strong>${escapeHtml(ppeHtml)}</div>` : ''}
+                    ${hazHtml ? `<div class="mt-1.5"><strong>潛在危害：</strong>${hazHtml}</div>` : ''}
+                `;
+            }
         }
 
         function setGuestDeclLang(lang) {
@@ -5351,15 +5429,65 @@ function deleteProjectFile(req) {
             });
         }
 
+        function connectGuestToHostPeer(targetPeerId) {
+            // Also connect BroadcastChannel for same-device / preview tab instant sync
+            if (typeof BroadcastChannel !== 'undefined') {
+                try {
+                    guestBroadcastChannel = new BroadcastChannel('tbm_guest_direct_v6');
+                    guestBroadcastChannel.onmessage = (ev) => {
+                        const msg = ev.data;
+                        if (msg?.type === 'meeting_brief' && msg.brief) {
+                            applyGuestMeetingBrief(msg.brief);
+                            updateGuestConnUi('connected', '已連線至主辦表單！簽名後將即時回傳');
+                        }
+                    };
+                    guestBroadcastChannel.postMessage({ type: 'request_brief', docNo: guestPageParams.docNo });
+                } catch (e) {}
+            }
+
+            if (!targetPeerId || typeof Peer === 'undefined') {
+                updateGuestConnUi('offline', '離線簽名模式：簽完後可複製回傳碼交給主辦人員');
+                return;
+            }
+
+            updateGuestConnUi('connecting', '正在連線至現場主辦表單...');
+            try {
+                guestPeer = new Peer(PEER_ICE_CONFIG);
+                guestPeer.on('open', () => {
+                    guestConn = guestPeer.connect(targetPeerId, { reliable: true });
+                    guestConn.on('open', () => {
+                        updateGuestConnUi('connected', '已連線至現場主辦表單！簽完點上傳即可即時回傳');
+                        try { guestConn.send({ type: 'request_brief' }); } catch (e) {}
+                    });
+                    guestConn.on('data', (msg) => {
+                        if (msg?.type === 'meeting_brief' && msg.brief) {
+                            applyGuestMeetingBrief(msg.brief);
+                        }
+                    });
+                    guestConn.on('close', () => {
+                        updateGuestConnUi('offline', '主辦端已關閉 QR 視窗（簽完仍可複製回傳碼交給主辦）');
+                    });
+                    guestConn.on('error', () => {
+                        updateGuestConnUi('offline', '無法直連主辦端（簽完仍可複製回傳碼交給主辦）');
+                    });
+                });
+                guestPeer.on('error', () => {
+                    updateGuestConnUi('offline', '網路環境不支援直連（簽完仍可複製回傳碼交給主辦）');
+                });
+            } catch (e) {
+                updateGuestConnUi('offline', '離線簽名模式：簽完後可複製回傳碼交給主辦人員');
+            }
+        }
+
         async function bootstrapGuestSigningMode() {
             const p = new URLSearchParams(window.location.search);
             guestPageParams = {
                 docNo: p.get('docNo') || '',
+                peer: p.get('peer') || '',
                 proj: p.get('proj') || '工安危害告知與工具箱會議',
                 loc: p.get('loc') || '-',
                 date: p.get('date') || getLocalDateString(),
-                contractor: p.get('contractor') || '',
-                gas: p.get('gas') || getConfiguredGasUrl()
+                contractor: p.get('contractor') || ''
             };
 
             // Hide Host UI & Show Guest Page
@@ -5380,43 +5508,56 @@ function deleteProjectFile(req) {
             if (guestPageParams.contractor) {
                 document.getElementById('guestInputContractor').value = guestPageParams.contractor;
             }
+            document.getElementById('guestBriefContent').innerHTML = '<div class="text-slate-500">請依現場主持人宣讀之危害告知事項與個人防護具規定確實遵守。</div>';
+
             setGuestDeclLang('zh');
             requestAnimationFrame(() => initGuestCanvas());
-
-            // Fetch full meeting hazards & PPE from GAS if available
-            const briefEl = document.getElementById('guestBriefContent');
-            if (isValidGasUrl(guestPageParams.gas)) {
-                try {
-                    const sep = guestPageParams.gas.includes('?') ? '&' : '?';
-                    const res = await fetch(`${guestPageParams.gas}${sep}action=getMeetingBrief&docNo=${encodeURIComponent(guestPageParams.docNo)}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const b = data?.brief;
-                        if (b) {
-                            if (b.projectName) document.getElementById('guestProjectName').textContent = b.projectName;
-                            if (b.location) document.getElementById('guestLocation').textContent = b.location;
-                            if (b.contractor) {
-                                document.getElementById('guestDefaultContractor').textContent = b.contractor;
-                                if (!document.getElementById('guestInputContractor').value) {
-                                    document.getElementById('guestInputContractor').value = b.contractor;
-                                }
-                            }
-                            const hazHtml = (b.hazards || []).map((h, i) => `<div>${i + 1}. ${escapeHtml(h)}</div>`).join('');
-                            const ppeHtml = (b.ppe || []).join('、');
-                            briefEl.innerHTML = `
-                                ${ppeHtml ? `<div><strong>應戴防護具：</strong>${escapeHtml(ppeHtml)}</div>` : ''}
-                                ${hazHtml ? `<div class="mt-1.5"><strong>潛在危害：</strong>${hazHtml}</div>` : ''}
-                            `;
-                        }
-                    }
-                } catch (e) {}
-            }
-            if (!briefEl.innerHTML.trim()) {
-                briefEl.innerHTML = '<div class="text-slate-500">請依現場主持人宣讀之危害告知事項與個人防護具規定確實遵守。</div>';
-            }
+            connectGuestToHostPeer(guestPageParams.peer);
 
             window.addEventListener('resize', () => {
                 if (guestSigCanvas && guestSigCtx) resizeCanvasPreserveInk(guestSigCanvas, guestSigCtx);
+            });
+        }
+
+        function sendSignatureViaPeerWithAck(sigRecord) {
+            return new Promise((resolve) => {
+                let done = false;
+                const finish = (ok) => {
+                    if (done) return;
+                    done = true;
+                    resolve(ok);
+                };
+
+                // 1. Try same-browser BroadcastChannel first if available
+                if (guestBroadcastChannel) {
+                    const prevHandler = guestBroadcastChannel.onmessage;
+                    guestBroadcastChannel.onmessage = (ev) => {
+                        if (prevHandler) prevHandler(ev);
+                        if (ev.data?.type === 'sig_ack' && ev.data.id === sigRecord.id) {
+                            finish(true);
+                        }
+                    };
+                    try { guestBroadcastChannel.postMessage({ type: 'guest_sig', signature: sigRecord }); } catch (e) {}
+                }
+
+                // 2. Send over live WebRTC P2P DataChannel to Host
+                if (guestConn && guestConn.open) {
+                    const onData = (msg) => {
+                        if (msg?.type === 'sig_ack' && msg.id === sigRecord.id) {
+                            guestConn.off?.('data', onData);
+                            finish(true);
+                        }
+                    };
+                    guestConn.on('data', onData);
+                    try {
+                        guestConn.send({ type: 'guest_sig', signature: sigRecord });
+                    } catch (e) {
+                        finish(false);
+                    }
+                    setTimeout(() => finish(false), 5500);
+                } else {
+                    setTimeout(() => finish(false), 900);
+                }
             });
         }
 
@@ -5436,7 +5577,7 @@ function deleteProjectFile(req) {
 
             const btn = document.getElementById('btnGuestSubmitSig');
             if (btn) btn.disabled = true;
-            showToast('⏳ 正在上傳簽名至表單...', 'info');
+            showToast('⏳ 正在將簽名直傳回主辦表單...', 'info');
 
             try {
                 const sigDataUrl = await compressSignatureForTransfer(guestSigCanvas);
@@ -5456,46 +5597,21 @@ function deleteProjectFile(req) {
                     signatureDataUrl: sigDataUrl
                 };
 
-                const gasUrl = guestPageParams.gas;
-                let uploadedOnline = false;
-
-                if (isValidGasUrl(gasUrl)) {
-                    const bodyStr = JSON.stringify({
-                        action: 'submitGuestSig',
-                        docNo: guestPageParams.docNo,
-                        signature: sigRecord
-                    });
-                    try {
-                        const res = await fetch(gasUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: bodyStr
-                        });
-                        if (res.ok) uploadedOnline = true;
-                    } catch (err) {
-                        await fetch(gasUrl, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: bodyStr
-                        });
-                        uploadedOnline = true;
-                    }
-                }
+                const deliveredDirect = await sendSignatureViaPeerWithAck(sigRecord);
 
                 document.getElementById('guestSignFormCard').classList.add('hidden');
                 const successCard = document.getElementById('guestSuccessCard');
                 successCard.classList.remove('hidden');
 
-                if (uploadedOnline) {
-                    document.getElementById('guestSuccessTitle').textContent = `✅ ${name}，簽名已上傳回表單！`;
-                    document.getElementById('guestSuccessDesc').textContent = `您的簽名已回傳至單號 ${guestPageParams.docNo}，主辦人員畫面將於幾秒內自動顯示。`;
+                if (deliveredDirect) {
+                    document.getElementById('guestSuccessTitle').textContent = `✅ ${name}，簽名已即時傳回表單！`;
+                    document.getElementById('guestSuccessDesc').textContent = `您的簽名已直接回傳至單號 ${guestPageParams.docNo}，主辦人員畫面已同步完成建檔。`;
                     document.getElementById('guestOfflineCodeBox').classList.add('hidden');
-                    showToast('✅ 簽名上傳成功！', 'success');
+                    showToast('✅ 簽名直傳成功！', 'success');
                 } else {
                     const code = 'TBM_SIG:' + btoa(unescape(encodeURIComponent(JSON.stringify(sigRecord))));
                     document.getElementById('guestSuccessTitle').textContent = `✅ ${name}，已完成簽名！`;
-                    document.getElementById('guestSuccessDesc').textContent = '目前主辦端尚未啟用自動雲端中繼，請點下方按鈕複製回傳碼並傳送給現場主辦人員即可匯入表單。';
+                    document.getElementById('guestSuccessDesc').textContent = '目前與主辦端無法直連（可能主辦視窗已關閉或網路限制），請點下方按鈕複製回傳碼並傳給主辦人員即可匯入。';
                     document.getElementById('guestOfflineCodeText').value = code;
                     document.getElementById('guestOfflineCodeBox').classList.remove('hidden');
                     showToast('已產生離線簽名回傳碼', 'info');
