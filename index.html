@@ -315,7 +315,7 @@
     </div>
 
     <!-- ==================== CLEAN TOP NAVIGATION BAR ==================== -->
-    <header class="app-top-header sticky top-0 z-40 bg-slate-900 text-white shadow-md">
+    <header id="hostMainHeader" class="app-top-header sticky top-0 z-40 bg-slate-900 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-3 sm:px-5 min-h-[3.5rem] py-1.5 flex flex-wrap items-center justify-between gap-2">
             <!-- Brand & Auto-Save Dot -->
             <div class="flex items-center gap-2.5 min-w-0">
@@ -1259,7 +1259,7 @@
     </main>
 
     <!-- ==================== MOBILE BOTTOM THUMB NAVIGATION BAR ==================== -->
-    <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.08)]" style="padding-bottom: var(--safe-bottom);">
+    <nav id="hostMobileBottomNav" class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.08)]" style="padding-bottom: var(--safe-bottom);">
         <div class="grid grid-cols-5 items-center min-h-[4rem] py-1 px-1">
             <button type="button" onclick="switchTab(1)" id="mobNav-1" class="flex flex-col items-center justify-center gap-0.5 text-slate-900 font-black">
                 <i class="fa-solid fa-clipboard-list text-base"></i>
@@ -1661,47 +1661,106 @@
     <div id="guestSigningPage" class="hidden min-h-screen bg-slate-100 flex-col">
         <!-- Guest Top Header -->
         <header class="app-top-header sticky top-0 z-40 bg-slate-900 text-white shadow-md">
-            <div class="max-w-xl mx-auto px-4 min-h-[3.5rem] py-2 flex items-center justify-between gap-2">
+            <div class="max-w-2xl mx-auto px-4 min-h-[3.5rem] py-2 flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5 min-w-0">
                     <div class="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
                         <i class="fa-solid fa-helmet-safety text-lg"></i>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-sm font-black truncate">施工人員 (GUEST) 危害告知簽名</div>
+                        <div class="text-sm font-black truncate">工安危害告知單（施工人員檢視簽名）</div>
                         <div id="guestHeaderDocNo" class="text-[11px] text-amber-300 font-mono truncate">單號：-</div>
                     </div>
                 </div>
-                <button type="button" onclick="cycleUserFontScale()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-black text-slate-200 shrink-0">Aa</button>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <a href="#guestSignFormCard" class="px-2.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-black">前往簽名 ↓</a>
+                    <button type="button" onclick="cycleUserFontScale()" class="px-2 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-black text-slate-200">Aa</button>
+                </div>
             </div>
         </header>
 
-        <main class="flex-1 w-full max-w-xl mx-auto px-3.5 py-4 space-y-3.5 pb-10">
+        <main class="flex-1 w-full max-w-2xl mx-auto px-3.5 py-4 space-y-4 pb-12">
             <!-- Live P2P Return Status Strip -->
             <div id="guestConnBanner" class="rounded-2xl border px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 bg-amber-50 border-amber-200 text-amber-900">
                 <span id="guestConnDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
                 <span id="guestConnText">正在連線至現場主辦表單...</span>
             </div>
 
-            <!-- Meeting Info Summary Card -->
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">今日工具箱會議 TBM-KY</span>
-                    <span id="guestMeetingDate" class="text-xs font-mono font-bold text-slate-500"></span>
+            <!-- Read-Only Section 1: Basic Meeting Info -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2">
+                    <h2 class="text-xs sm:text-sm font-black flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-md bg-amber-400 text-slate-950 flex items-center justify-center text-[11px]">1</span>
+                        <span>今日危害告知單基本資訊（唯讀）</span>
+                    </h2>
+                    <span class="text-[10px] font-bold bg-white/15 px-2 py-0.5 rounded-full">不可編輯</span>
                 </div>
-                <h2 id="guestProjectName" class="text-base font-black text-slate-900 leading-snug">載入工程資訊中...</h2>
-                <div class="text-xs text-slate-600 space-y-0.5">
-                    <div><strong>作業地點：</strong><span id="guestLocation">-</span></div>
-                    <div><strong>承攬廠商：</strong><span id="guestDefaultContractor">-</span></div>
+                <div class="p-4 space-y-2.5 text-xs text-slate-700">
+                    <div>
+                        <div class="text-[11px] font-bold text-slate-400">工程 / 作業名稱</div>
+                        <div id="guestProjectName" class="text-base font-black text-slate-950 leading-snug mt-0.5">載入工程資訊中...</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-100">
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-400">作業地點 / 區域</div>
+                            <div id="guestLocation" class="font-bold text-slate-800 mt-0.5">-</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-400">會議日期與時間</div>
+                            <div id="guestMeetingDate" class="font-mono font-bold text-slate-800 mt-0.5">-</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-400">承攬廠商</div>
+                            <div id="guestDefaultContractor" class="font-bold text-slate-800 mt-0.5">-</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-400">會議主持人 / 天氣</div>
+                            <div id="guestHostWeather" class="font-bold text-slate-800 mt-0.5">-</div>
+                        </div>
+                    </div>
+                    <div id="guestWorkSummaryWrap" class="pt-2 border-t border-slate-100">
+                        <div class="text-[11px] font-bold text-slate-400">今日作業內容摘要</div>
+                        <div id="guestWorkSummary" class="font-semibold text-slate-800 leading-relaxed mt-0.5">-</div>
+                    </div>
                 </div>
-                <!-- Collapsible Hazards & PPE -->
-                <details id="guestBriefDetails" class="pt-2 border-t border-slate-100 text-xs">
-                    <summary class="font-black text-blue-700 cursor-pointer select-none">檢視今日潛在危害與應戴防護具 (PPE) ▾</summary>
-                    <div id="guestBriefContent" class="mt-2 space-y-2 text-slate-700 leading-relaxed"></div>
-                </details>
+            </div>
+
+            <!-- Read-Only Section 2: Hazards & Countermeasures -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                    <h2 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-md bg-rose-600 text-white flex items-center justify-center text-[11px]">2</span>
+                        <span>潛在危害因素與安全防範對策（請詳閱）</span>
+                    </h2>
+                </div>
+                <div class="p-4 space-y-3.5">
+                    <!-- Hazards -->
+                    <div class="bg-rose-50/60 border border-rose-200 rounded-2xl p-3.5 space-y-2">
+                        <div class="text-xs font-black text-rose-800">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>【一、潛在危害因素告知】（<span id="guestHazardCount">0</span> 項）
+                        </div>
+                        <ul id="guestHazardsList" class="space-y-1.5 text-xs text-slate-800"></ul>
+                    </div>
+                    <!-- Countermeasures -->
+                    <div class="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3.5 space-y-2">
+                        <div class="text-xs font-black text-emerald-800">
+                            <i class="fa-solid fa-shield-halved mr-1"></i>【二、危害防範與安全對策】（<span id="guestMeasureCount">0</span> 項）
+                        </div>
+                        <ul id="guestMeasuresList" class="space-y-1.5 text-xs text-slate-800"></ul>
+                    </div>
+                    <!-- PPE & Special Notes -->
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+                        <div class="text-xs font-black text-slate-800">
+                            <i class="fa-solid fa-vest text-amber-500 mr-1.5"></i>【三、應穿戴個人防護具 (PPE)】
+                        </div>
+                        <div id="guestPpeList" class="flex flex-wrap gap-1.5"></div>
+                        <div id="guestNotesBox" class="pt-2 border-t border-slate-200 text-xs text-slate-700 leading-relaxed"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Multi-Language Safety Declaration -->
             <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2">
+                <div class="text-xs font-black text-amber-950"><i class="fa-solid fa-earth-asia mr-1"></i>危害告知確認聲明（可切換語言）</div>
                 <div class="grid grid-cols-4 gap-1">
                     <button type="button" onclick="setGuestDeclLang('zh')" id="gLang-zh" class="py-1.5 rounded-xl text-[11px] font-black bg-slate-900 text-white">繁體中文</button>
                     <button type="button" onclick="setGuestDeclLang('vi')" id="gLang-vi" class="py-1.5 rounded-xl text-[11px] font-bold bg-white text-slate-700 border border-amber-200">Tiếng Việt</button>
@@ -1712,7 +1771,11 @@
             </div>
 
             <!-- Guest Signer Form + Signature Pad -->
-            <div id="guestSignFormCard" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5">
+            <div id="guestSignFormCard" class="bg-white rounded-2xl border-2 border-slate-900 shadow-md p-4 space-y-3.5">
+                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <span class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black">3</span>
+                    <h3 class="text-sm font-black text-slate-900">檢視完畢：填寫資料並親筆簽名上傳</h3>
+                </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="min-w-0">
                         <label class="block text-xs font-bold text-slate-600 mb-1">您的姓名 <span class="text-rose-500">*</span></label>
@@ -1747,7 +1810,7 @@
 
                 <button type="button" id="btnGuestSubmitSig" onclick="submitGuestSignature()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-5 rounded-2xl text-sm shadow-md transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-paper-plane"></i>
-                    <span>確認簽名並上傳回表單</span>
+                    <span>我已詳閱危害告知，確認簽名並上傳</span>
                 </button>
             </div>
 
@@ -5005,7 +5068,11 @@ function deleteProjectFile(req) {
                 location: m.location || '',
                 date: m.date || '',
                 time: m.time || '',
+                weather: m.weather || '晴天',
+                host: m.host || '',
+                workSummary: m.workSummary || '',
                 contractor: m.contractor || '',
+                selectedPresets: m.selectedPresets || [],
                 hazards: m.hazards || [],
                 measures: m.measures || [],
                 ppe: m.ppe || [],
@@ -5022,7 +5089,13 @@ function deleteProjectFile(req) {
             if (m.projectName) params.set('proj', m.projectName.slice(0, 32));
             if (m.location) params.set('loc', m.location.slice(0, 24));
             if (m.date) params.set('date', m.date);
+            if (m.time) params.set('time', m.time);
             if (m.contractor) params.set('contractor', m.contractor.slice(0, 24));
+            if (m.host) params.set('host', m.host.slice(0, 16));
+            if (m.weather) params.set('weather', m.weather);
+            if (Array.isArray(m.selectedPresets) && m.selectedPresets.length > 0) {
+                params.set('presets', m.selectedPresets.join(','));
+            }
             return `${getCleanBasePageUrl()}?${params.toString()}`;
         }
 
@@ -5313,25 +5386,93 @@ function deleteProjectFile(req) {
             text.textContent = msg;
         }
 
+        function buildBriefFromPresetIds(presetIds) {
+            const hazards = [];
+            const measures = [];
+            const ppe = [];
+            const summaries = [];
+            (presetIds || []).forEach(id => {
+                const p = HAZARD_PRESETS.find(item => item.id === id);
+                if (!p) return;
+                summaries.push(p.summary);
+                p.hazards.forEach(h => { if (!hazards.includes(h)) hazards.push(h); });
+                p.measures.forEach(ms => { if (!measures.includes(ms)) measures.push(ms); });
+                p.ppe.forEach(pp => { if (!ppe.includes(pp)) ppe.push(pp); });
+            });
+            return { hazards, measures, ppe, workSummary: summaries.join('、') };
+        }
+
         function applyGuestMeetingBrief(b) {
             if (!b) return;
-            if (b.projectName) document.getElementById('guestProjectName').textContent = b.projectName;
-            if (b.location) document.getElementById('guestLocation').textContent = b.location;
-            if (b.date) document.getElementById('guestMeetingDate').textContent = b.date;
-            if (b.contractor) {
-                document.getElementById('guestDefaultContractor').textContent = b.contractor;
-                if (!document.getElementById('guestInputContractor').value) {
-                    document.getElementById('guestInputContractor').value = b.contractor;
-                }
+            const projEl = document.getElementById('guestProjectName');
+            const locEl = document.getElementById('guestLocation');
+            const dateEl = document.getElementById('guestMeetingDate');
+            const contEl = document.getElementById('guestDefaultContractor');
+            const hostWeatherEl = document.getElementById('guestHostWeather');
+            const sumEl = document.getElementById('guestWorkSummary');
+
+            if (projEl && b.projectName) projEl.textContent = b.projectName;
+            if (locEl && b.location) locEl.textContent = b.location;
+            if (dateEl && b.date) dateEl.textContent = `${b.date}${b.time ? ' ' + b.time : ''}`;
+            if (contEl && b.contractor) {
+                contEl.textContent = b.contractor;
+                const inpCont = document.getElementById('guestInputContractor');
+                if (inpCont && !inpCont.value) inpCont.value = b.contractor;
             }
-            const briefEl = document.getElementById('guestBriefContent');
-            if (briefEl) {
-                const hazHtml = (b.hazards || []).map((h, i) => `<div>${i + 1}. ${escapeHtml(h)}</div>`).join('');
-                const ppeHtml = (b.ppe || []).join('、');
-                briefEl.innerHTML = `
-                    ${ppeHtml ? `<div><strong>應戴防護具：</strong>${escapeHtml(ppeHtml)}</div>` : ''}
-                    ${hazHtml ? `<div class="mt-1.5"><strong>潛在危害：</strong>${hazHtml}</div>` : ''}
-                `;
+            if (hostWeatherEl) {
+                const parts = [];
+                if (b.host) parts.push(b.host);
+                if (b.weather) parts.push(b.weather);
+                hostWeatherEl.textContent = parts.length > 0 ? parts.join(' ｜ ') : '-';
+            }
+            if (sumEl && b.workSummary) sumEl.textContent = b.workSummary;
+
+            const hazards = Array.isArray(b.hazards) ? b.hazards : [];
+            const measures = Array.isArray(b.measures) ? b.measures : [];
+            const ppe = Array.isArray(b.ppe) ? b.ppe : [];
+
+            const hCount = document.getElementById('guestHazardCount');
+            const mCount = document.getElementById('guestMeasureCount');
+            if (hCount) hCount.textContent = hazards.length;
+            if (mCount) mCount.textContent = measures.length;
+
+            const hList = document.getElementById('guestHazardsList');
+            if (hList) {
+                hList.innerHTML = hazards.length > 0
+                    ? hazards.map((h, i) => `
+                        <li class="bg-white px-2.5 py-2 rounded-xl border border-rose-100 leading-snug">
+                            <strong class="text-rose-600 mr-1">${i + 1}.</strong>${escapeHtml(h)}
+                        </li>
+                    `).join('')
+                    : '<li class="text-slate-400 italic py-1">載入危害項目中，或請依現場主持人說明為準</li>';
+            }
+
+            const mList = document.getElementById('guestMeasuresList');
+            if (mList) {
+                mList.innerHTML = measures.length > 0
+                    ? measures.map((ms, i) => `
+                        <li class="bg-white px-2.5 py-2 rounded-xl border border-emerald-100 leading-snug">
+                            <strong class="text-emerald-600 mr-1">${i + 1}.</strong>${escapeHtml(ms)}
+                        </li>
+                    `).join('')
+                    : '<li class="text-slate-400 italic py-1">載入防範對策中，或請依現場主持人說明為準</li>';
+            }
+
+            const ppeEl = document.getElementById('guestPpeList');
+            if (ppeEl) {
+                ppeEl.innerHTML = ppe.length > 0
+                    ? ppe.map(item => `
+                        <span class="inline-flex items-center gap-1 bg-white border border-slate-300 px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800">
+                            <i class="fa-solid fa-check text-emerald-600 text-[10px]"></i>
+                            <span>${escapeHtml(item)}</span>
+                        </span>
+                    `).join('')
+                    : '<span class="text-xs text-slate-500">安全帽、安全鞋及現場指定防護具</span>';
+            }
+
+            const notesEl = document.getElementById('guestNotesBox');
+            if (notesEl) {
+                notesEl.innerHTML = `<strong>現場特殊叮嚀：</strong>${escapeHtml(b.notes || '請全員確實遵守工地安全規定，注意自身與他人安全。')}`;
             }
         }
 
@@ -5481,34 +5622,56 @@ function deleteProjectFile(req) {
 
         async function bootstrapGuestSigningMode() {
             const p = new URLSearchParams(window.location.search);
+            const presetIds = (p.get('presets') || '').split(',').map(s => s.trim()).filter(Boolean);
             guestPageParams = {
                 docNo: p.get('docNo') || '',
                 peer: p.get('peer') || '',
                 proj: p.get('proj') || '工安危害告知與工具箱會議',
                 loc: p.get('loc') || '-',
                 date: p.get('date') || getLocalDateString(),
-                contractor: p.get('contractor') || ''
+                time: p.get('time') || '',
+                contractor: p.get('contractor') || '',
+                host: p.get('host') || '',
+                weather: p.get('weather') || '晴天',
+                presets: presetIds
             };
 
-            // Hide Host UI & Show Guest Page
-            document.querySelector('header')?.classList.add('hidden');
-            document.getElementById('mainWorkspace')?.classList.add('hidden');
-            document.querySelector('nav.lg\:hidden')?.classList.add('hidden');
+            // Safely hide Host UI using explicit IDs (no fragile escaped selectors)
+            const hostHeader = document.getElementById('hostMainHeader');
+            const hostMain = document.getElementById('mainWorkspace');
+            const hostNav = document.getElementById('hostMobileBottomNav');
+            if (hostHeader) hostHeader.style.display = 'none';
+            if (hostMain) hostMain.style.display = 'none';
+            if (hostNav) hostNav.style.display = 'none';
             document.body.classList.remove('pb-24', 'lg:pb-8');
 
+            // Show Guest Read-Only Hazard Sheet + Signing Page immediately
             const guestPage = document.getElementById('guestSigningPage');
-            guestPage.classList.remove('hidden');
-            guestPage.classList.add('flex');
+            if (guestPage) {
+                guestPage.classList.remove('hidden');
+                guestPage.classList.add('flex');
+                guestPage.style.display = 'flex';
+            }
 
             document.getElementById('guestHeaderDocNo').textContent = `單號：${guestPageParams.docNo}`;
-            document.getElementById('guestProjectName').textContent = guestPageParams.proj;
-            document.getElementById('guestLocation').textContent = guestPageParams.loc;
-            document.getElementById('guestMeetingDate').textContent = guestPageParams.date;
-            document.getElementById('guestDefaultContractor').textContent = guestPageParams.contractor || '-';
-            if (guestPageParams.contractor) {
-                document.getElementById('guestInputContractor').value = guestPageParams.contractor;
-            }
-            document.getElementById('guestBriefContent').innerHTML = '<div class="text-slate-500">請依現場主持人宣讀之危害告知事項與個人防護具規定確實遵守。</div>';
+
+            // Immediately populate full read-only hazard sheet from URL presets (zero wait!)
+            const initialPresetData = buildBriefFromPresetIds(presetIds.length > 0 ? presetIds : ['height']);
+            applyGuestMeetingBrief({
+                docNo: guestPageParams.docNo,
+                projectName: guestPageParams.proj,
+                location: guestPageParams.loc,
+                date: guestPageParams.date,
+                time: guestPageParams.time,
+                contractor: guestPageParams.contractor,
+                host: guestPageParams.host,
+                weather: guestPageParams.weather,
+                workSummary: initialPresetData.workSummary,
+                hazards: initialPresetData.hazards,
+                measures: initialPresetData.measures,
+                ppe: initialPresetData.ppe,
+                notes: '請全員確實遵守工地安全規定，檢視完畢後於下方簽名上傳。'
+            });
 
             setGuestDeclLang('zh');
             requestAnimationFrame(() => initGuestCanvas());
