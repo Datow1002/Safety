@@ -144,12 +144,13 @@
         /* Strictly lock fullscreen signature modal against pinch-zoom, double-tap zoom, and scroll drift */
         .z-\[112\] { z-index: 112; }
         .z-\[113\] { z-index: 113; }
+        .z-\[130\] { z-index: 130; }
         .to-emerald-950 { --tw-gradient-to: #022c22 var(--tw-gradient-to-position); }
         .bg-slate-50\/70 { background-color: rgb(248 250 252 / 0.7); }
         .items-stretch { align-items: stretch; }
         @media (min-width: 640px) { .sm\:items-center { align-items: center; } }
-        #soloFullscreenModal.hidden { display: none !important; }
-        #soloFullscreenModal {
+        #soloFullscreenModal.hidden, #guestFullscreenModal.hidden { display: none !important; }
+        #soloFullscreenModal, #guestFullscreenModal {
             position: fixed !important;
             top: 0;
             left: 0;
@@ -168,7 +169,7 @@
             touch-action: pan-x !important;
             -webkit-overflow-scrolling: touch;
         }
-        #soloFullscreenModal input {
+        #soloFullscreenModal input, #guestFullscreenModal input {
             touch-action: manipulation !important;
             -webkit-user-select: text;
             user-select: text;
@@ -1793,17 +1794,26 @@
 
                 <!-- Signature Pad -->
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
                         <label class="text-xs font-black text-slate-800">親筆手寫簽名區 <span class="text-rose-500">*</span></label>
-                        <button type="button" onclick="clearGuestCanvas()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded-xl text-xs">
-                            <i class="fa-solid fa-eraser mr-1"></i>清除重簽
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 cursor-pointer">
+                                <input id="guestTapToFullscreenToggle" type="checkbox" checked="" class="rounded border-slate-300 text-amber-500">
+                                <span>點一下全螢幕</span>
+                            </label>
+                            <button type="button" onclick="openGuestFullscreenSignature()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3 py-1.5 rounded-xl text-xs shadow-sm transition">
+                                <i class="fa-solid fa-expand mr-1"></i>全螢幕簽名
+                            </button>
+                            <button type="button" onclick="clearGuestCanvas()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1.5 rounded-xl text-xs">
+                                <i class="fa-solid fa-eraser mr-1"></i>清除
+                            </button>
+                        </div>
                     </div>
-                    <div class="relative w-full h-56 rounded-2xl border-2 border-dashed border-slate-300 overflow-hidden bg-white">
+                    <div class="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 overflow-hidden bg-white">
                         <canvas id="guestSigCanvas" class="sig-canvas-grid w-full h-full block cursor-crosshair"></canvas>
                         <div id="guestSigPlaceholder" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-slate-400 select-none">
                             <i class="fa-solid fa-signature text-3xl mb-1 opacity-60"></i>
-                            <span class="text-xs font-bold">請用手指在此處親筆簽名</span>
+                            <span class="text-xs font-bold">點一下展開 100% 全螢幕大簽名板</span>
                         </div>
                     </div>
                 </div>
@@ -1832,6 +1842,48 @@
                 </button>
             </div>
         </main>
+    </div>
+
+    <!-- ==================== GUEST 100% FULLSCREEN SIGNATURE MODAL ==================== -->
+    <div id="guestFullscreenModal" class="fixed inset-0 z-[130] hidden flex-col bg-slate-950 text-white" style="height: 100dvh;">
+        <!-- Top Bar -->
+        <div class="px-3 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0" style="padding-top: max(10px, var(--safe-top));">
+            <div class="flex items-center gap-2 flex-1 min-w-[180px]">
+                <input id="guestFsSignerName" type="text" placeholder="請輸入您的姓名 *" class="w-40 sm:w-48 bg-slate-800 border border-slate-600 rounded-xl px-3 py-1.5 text-white font-bold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <span class="hidden sm:inline text-xs font-bold text-amber-300">全螢幕簽名模式</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="setGuestFsInkColor('#0f172a')" id="guestInkBtnBlack" class="w-7 h-7 rounded-full bg-slate-950 border-2 border-amber-400" title="黑筆"></button>
+                <button type="button" onclick="setGuestFsInkColor('#1d4ed8')" id="guestInkBtnBlue" class="w-7 h-7 rounded-full bg-blue-700 border-2 border-slate-600" title="藍筆"></button>
+                <button type="button" onclick="closeGuestFullscreenSignature()" class="bg-slate-800 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-xs font-black">
+                    ✕ 關閉
+                </button>
+            </div>
+        </div>
+
+        <!-- Giant Drawing Area -->
+        <div class="relative flex-1 bg-white overflow-hidden">
+            <canvas id="guestFullscreenSigCanvas" class="sig-canvas-grid w-full h-full block cursor-crosshair"></canvas>
+            <div id="guestFsCanvasHint" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-slate-300 select-none">
+                <span class="text-lg sm:text-2xl font-black">請在此處大字親筆簽名</span>
+                <span class="text-xs font-bold mt-1">鎖定全螢幕不縮放，簽完可直接上傳回表單</span>
+            </div>
+        </div>
+
+        <!-- Bottom Action Bar -->
+        <div class="px-3 py-3 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0" style="padding-bottom: max(12px, var(--safe-bottom));">
+            <button type="button" onclick="clearGuestFullscreenCanvas()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm">
+                <i class="fa-solid fa-eraser mr-1"></i>重簽
+            </button>
+            <div class="flex items-center gap-2 flex-1 justify-end">
+                <button type="button" onclick="confirmGuestFullscreenToPreview()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3.5 sm:px-4 py-3 rounded-xl text-xs sm:text-sm shadow">
+                    <i class="fa-solid fa-check mr-1"></i>套用簽名
+                </button>
+                <button type="button" id="btnGuestFsSubmitDirect" onclick="submitGuestFromFullscreen()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 sm:px-5 py-3 rounded-xl text-xs sm:text-sm shadow">
+                    <i class="fa-solid fa-paper-plane mr-1"></i>直接上傳回表單
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== IN-PAGE CONFIRMATION MODAL (No browser confirm()) ==================== -->
@@ -3113,21 +3165,27 @@
         }
 
         function syncFullscreenModalViewport() {
-            const modal = document.getElementById('soloFullscreenModal');
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (window.visualViewport) {
-                const vv = window.visualViewport;
-                modal.style.top = `${Math.max(0, Math.round(vv.offsetTop))}px`;
-                modal.style.left = `${Math.max(0, Math.round(vv.offsetLeft))}px`;
-                modal.style.width = `${Math.round(vv.width)}px`;
-                modal.style.height = `${Math.round(vv.height)}px`;
-            } else {
-                modal.style.top = '0px';
-                modal.style.left = '0px';
-                modal.style.width = '100vw';
-                modal.style.height = '100dvh';
-            }
-            requestAnimationFrame(() => resizeCanvasPreserveInk(fsSigCanvas, fsSigCtx));
+            const applyTo = (modalId, canvasRef, ctxRef) => {
+                const modal = document.getElementById(modalId);
+                if (!modal || modal.classList.contains('hidden')) return;
+                if (window.visualViewport) {
+                    const vv = window.visualViewport;
+                    modal.style.top = `${Math.max(0, Math.round(vv.offsetTop))}px`;
+                    modal.style.left = `${Math.max(0, Math.round(vv.offsetLeft))}px`;
+                    modal.style.width = `${Math.round(vv.width)}px`;
+                    modal.style.height = `${Math.round(vv.height)}px`;
+                } else {
+                    modal.style.top = '0px';
+                    modal.style.left = '0px';
+                    modal.style.width = '100vw';
+                    modal.style.height = '100dvh';
+                }
+                if (canvasRef && ctxRef) {
+                    requestAnimationFrame(() => resizeCanvasPreserveInk(canvasRef, ctxRef));
+                }
+            };
+            applyTo('soloFullscreenModal', fsSigCanvas, fsSigCtx);
+            applyTo('guestFullscreenModal', guestFsCanvas, guestFsCtx);
         }
 
         function lockBodyScroll() {
@@ -3909,6 +3967,7 @@
                 }
             } finally {
                 if (btn) btn.disabled = false;
+                if (fsBtn) fsBtn.disabled = false;
             }
         }
 
@@ -4862,7 +4921,7 @@
 
             const cloned = document.documentElement.cloneNode(true);
             cloned.querySelector('body')?.classList.remove('lock-scroll');
-            ['soloFullscreenModal', 'passAroundModal', 'voiceBriefingModal', 'rosterModal', 'commercialWelcomeModal', 'cloudSettingsModal', 'cloudProjectsModal', 'guestQrModal', 'confirmDialogModal', 'accountPopover'].forEach(id => {
+            ['soloFullscreenModal', 'passAroundModal', 'voiceBriefingModal', 'rosterModal', 'commercialWelcomeModal', 'cloudSettingsModal', 'cloudProjectsModal', 'guestQrModal', 'guestFullscreenModal', 'confirmDialogModal', 'accountPopover'].forEach(id => {
                 const el = cloned.querySelector('#' + id);
                 if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
             });
@@ -5041,6 +5100,10 @@ function deleteProjectFile(req) {
         let guestSigCanvas = null;
         let guestSigCtx = null;
         let guestHasInk = false;
+        let guestFsCanvas = null;
+        let guestFsCtx = null;
+        let guestFsHasInk = false;
+        let guestFsInkColor = '#0f172a';
         let guestPageParams = null;
 
         const PEER_ICE_CONFIG = {
@@ -5505,6 +5568,11 @@ function deleteProjectFile(req) {
             };
             const start = (e) => {
                 if (e.touches && e.touches.length > 1) { e.preventDefault(); drawing = false; return; }
+                if (document.getElementById('guestTapToFullscreenToggle')?.checked) {
+                    e.preventDefault();
+                    openGuestFullscreenSignature();
+                    return;
+                }
                 e.preventDefault();
                 drawing = true;
                 const pos = getPos(e);
@@ -5549,6 +5617,194 @@ function deleteProjectFile(req) {
             guestSigCtx.restore();
             guestHasInk = false;
             document.getElementById('guestSigPlaceholder')?.classList.remove('hidden');
+        }
+
+        function initGuestFullscreenCanvas() {
+            guestFsCanvas = document.getElementById('guestFullscreenSigCanvas');
+            if (!guestFsCanvas) return;
+            guestFsCtx = guestFsCanvas.getContext('2d');
+
+            let drawing = false;
+            let lastX = 0, lastY = 0;
+            const getPos = (e) => {
+                const rect = guestFsCanvas.getBoundingClientRect();
+                const pt = e.touches ? e.touches[0] : e;
+                return { x: pt.clientX - rect.left, y: pt.clientY - rect.top };
+            };
+            const start = (e) => {
+                if (e.touches && e.touches.length > 1) { e.preventDefault(); drawing = false; return; }
+                e.preventDefault();
+                drawing = true;
+                const pos = getPos(e);
+                lastX = pos.x; lastY = pos.y;
+                guestFsCtx.strokeStyle = guestFsInkColor;
+                guestFsCtx.lineWidth = 4.2;
+                guestFsCtx.lineCap = 'round';
+                guestFsCtx.lineJoin = 'round';
+                guestFsCtx.beginPath();
+                guestFsCtx.moveTo(lastX, lastY);
+                guestFsCtx.lineTo(lastX + 0.1, lastY + 0.1);
+                guestFsCtx.stroke();
+                guestFsHasInk = true;
+                document.getElementById('guestFsCanvasHint')?.classList.add('hidden');
+            };
+            const move = (e) => {
+                if (e.touches && e.touches.length > 1) { e.preventDefault(); drawing = false; return; }
+                if (!drawing) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                guestFsCtx.strokeStyle = guestFsInkColor;
+                guestFsCtx.lineWidth = 4.2;
+                guestFsCtx.beginPath();
+                guestFsCtx.moveTo(lastX, lastY);
+                guestFsCtx.lineTo(pos.x, pos.y);
+                guestFsCtx.stroke();
+                lastX = pos.x; lastY = pos.y;
+            };
+            const end = () => { drawing = false; };
+
+            guestFsCanvas.addEventListener('mousedown', start);
+            guestFsCanvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            guestFsCanvas.addEventListener('touchstart', start, { passive: false });
+            guestFsCanvas.addEventListener('touchmove', move, { passive: false });
+            guestFsCanvas.addEventListener('touchend', end);
+
+            // Hard-lock guest fullscreen modal against pinch-zoom & double-tap zoom
+            const modalEl = document.getElementById('guestFullscreenModal');
+            if (modalEl) {
+                ['gesturestart', 'gesturechange', 'gestureend'].forEach(evtName => {
+                    modalEl.addEventListener(evtName, (e) => e.preventDefault(), { passive: false });
+                });
+                modalEl.addEventListener('touchstart', (e) => {
+                    if (e.touches && e.touches.length > 1) e.preventDefault();
+                }, { passive: false });
+                modalEl.addEventListener('touchmove', (e) => {
+                    if (e.touches && e.touches.length > 1) { e.preventDefault(); return; }
+                    if (!e.target.closest('input')) e.preventDefault();
+                }, { passive: false });
+                let lastTouchEnd = 0;
+                modalEl.addEventListener('touchend', (e) => {
+                    const now = Date.now();
+                    if (now - lastTouchEnd <= 300 && !e.target.closest('input') && !e.target.closest('button')) {
+                        e.preventDefault();
+                    }
+                    lastTouchEnd = now;
+                }, { passive: false });
+            }
+        }
+
+        function setGuestFsInkColor(color) {
+            guestFsInkColor = color;
+            document.getElementById('guestInkBtnBlack')?.classList.toggle('border-amber-400', color === '#0f172a');
+            document.getElementById('guestInkBtnBlack')?.classList.toggle('border-slate-600', color !== '#0f172a');
+            document.getElementById('guestInkBtnBlue')?.classList.toggle('border-amber-400', color === '#1d4ed8');
+            document.getElementById('guestInkBtnBlue')?.classList.toggle('border-slate-600', color !== '#1d4ed8');
+        }
+
+        function clearGuestFullscreenCanvas() {
+            if (!guestFsCanvas || !guestFsCtx) return;
+            guestFsCtx.save();
+            guestFsCtx.setTransform(1, 0, 0, 1, 0, 0);
+            guestFsCtx.clearRect(0, 0, guestFsCanvas.width, guestFsCanvas.height);
+            guestFsCtx.restore();
+            guestFsHasInk = false;
+            document.getElementById('guestFsCanvasHint')?.classList.remove('hidden');
+        }
+
+        function openGuestFullscreenSignature() {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            resetViewportZoom();
+            const modal = document.getElementById('guestFullscreenModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lockBodyScroll();
+
+            const nameVal = document.getElementById('guestInputName')?.value || '';
+            const fsNameEl = document.getElementById('guestFsSignerName');
+            if (fsNameEl) fsNameEl.value = nameVal;
+
+            syncFullscreenModalViewport();
+            requestAnimationFrame(() => {
+                resizeCanvasPreserveInk(guestFsCanvas, guestFsCtx);
+                clearGuestFullscreenCanvas();
+            });
+        }
+
+        function closeGuestFullscreenSignature() {
+            const modal = document.getElementById('guestFullscreenModal');
+            if (!modal) return;
+            if (document.activeElement && modal.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            const fsNameVal = document.getElementById('guestFsSignerName')?.value.trim();
+            if (fsNameVal && document.getElementById('guestInputName')) {
+                document.getElementById('guestInputName').value = fsNameVal;
+            }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modal.style.top = '';
+            modal.style.left = '';
+            modal.style.width = '';
+            modal.style.height = '';
+            unlockBodyScroll();
+            resetViewportZoom();
+        }
+
+        function confirmGuestFullscreenToPreview() {
+            const fsNameVal = document.getElementById('guestFsSignerName')?.value.trim();
+            if (fsNameVal && document.getElementById('guestInputName')) {
+                document.getElementById('guestInputName').value = fsNameVal;
+            }
+            if (!guestFsHasInk) {
+                showToast('請先在白色畫板上手寫簽名！', 'error');
+                return;
+            }
+            const cropped = cropSignatureCanvasToDataUrl(guestFsCanvas);
+            if (!cropped) {
+                showToast('簽名內容為空，請重新簽名', 'error');
+                return;
+            }
+            closeGuestFullscreenSignature();
+            // Draw cropped signature centered onto guest inline preview canvas
+            clearGuestCanvas();
+            const img = new Image();
+            img.onload = () => {
+                const rect = guestSigCanvas.parentElement.getBoundingClientRect();
+                const pad = 14;
+                const availW = Math.max(20, rect.width - pad * 2);
+                const availH = Math.max(20, rect.height - pad * 2);
+                const scale = Math.min(availW / img.width, availH / img.height);
+                const dw = img.width * scale;
+                const dh = img.height * scale;
+                const dx = (rect.width - dw) / 2;
+                const dy = (rect.height - dh) / 2;
+                guestSigCtx.drawImage(img, dx, dy, dw, dh);
+                guestHasInk = true;
+                document.getElementById('guestSigPlaceholder')?.classList.add('hidden');
+                showToast('✅ 簽名已套用，確認資料無誤後點下方上傳！', 'success');
+            };
+            img.src = cropped;
+        }
+
+        async function submitGuestFromFullscreen() {
+            const fsNameVal = document.getElementById('guestFsSignerName')?.value.trim() || '';
+            if (fsNameVal && document.getElementById('guestInputName')) {
+                document.getElementById('guestInputName').value = fsNameVal;
+            }
+            const name = document.getElementById('guestInputName')?.value.trim() || '';
+            if (!name) {
+                showToast('請先在上方輸入您的姓名！', 'error');
+                return;
+            }
+            if (!guestFsHasInk) {
+                showToast('請先在白色簽名板上親筆簽名！', 'error');
+                return;
+            }
+            await submitGuestSignature(guestFsCanvas);
         }
 
         function compressSignatureForTransfer(canvas) {
@@ -5674,11 +5930,26 @@ function deleteProjectFile(req) {
             });
 
             setGuestDeclLang('zh');
-            requestAnimationFrame(() => initGuestCanvas());
+            requestAnimationFrame(() => {
+                initGuestCanvas();
+                initGuestFullscreenCanvas();
+            });
             connectGuestToHostPeer(guestPageParams.peer);
 
             window.addEventListener('resize', () => {
                 if (guestSigCanvas && guestSigCtx) resizeCanvasPreserveInk(guestSigCanvas, guestSigCtx);
+                syncFullscreenModalViewport();
+            });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', syncFullscreenModalViewport);
+                window.visualViewport.addEventListener('scroll', syncFullscreenModalViewport);
+            }
+            document.addEventListener('focusout', (e) => {
+                const tag = e.target?.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                    setTimeout(resetViewportZoom, 80);
+                    setTimeout(resetViewportZoom, 260);
+                }
             });
         }
 
@@ -5724,7 +5995,9 @@ function deleteProjectFile(req) {
             });
         }
 
-        async function submitGuestSignature() {
+        async function submitGuestSignature(sourceCanvas = null) {
+            const targetCanvas = sourceCanvas || guestSigCanvas;
+            const hasInk = (targetCanvas === guestFsCanvas) ? guestFsHasInk : guestHasInk;
             const name = document.getElementById('guestInputName').value.trim();
             const contractor = document.getElementById('guestInputContractor').value.trim() || guestPageParams?.contractor || '-';
             const role = document.getElementById('guestInputRole').value.trim() || '施工人員';
@@ -5733,17 +6006,19 @@ function deleteProjectFile(req) {
                 showToast('請先輸入您的姓名！', 'error');
                 return;
             }
-            if (!guestHasInk) {
+            if (!hasInk) {
                 showToast('請先在白色簽名板上親筆簽名！', 'error');
                 return;
             }
 
             const btn = document.getElementById('btnGuestSubmitSig');
+            const fsBtn = document.getElementById('btnGuestFsSubmitDirect');
             if (btn) btn.disabled = true;
+            if (fsBtn) fsBtn.disabled = true;
             showToast('⏳ 正在將簽名直傳回主辦表單...', 'info');
 
             try {
-                const sigDataUrl = await compressSignatureForTransfer(guestSigCanvas);
+                const sigDataUrl = await compressSignatureForTransfer(targetCanvas);
                 if (!sigDataUrl) {
                     showToast('簽名內容為空，請重新簽名', 'error');
                     if (btn) btn.disabled = false;
@@ -5762,6 +6037,7 @@ function deleteProjectFile(req) {
 
                 const deliveredDirect = await sendSignatureViaPeerWithAck(sigRecord);
 
+                closeGuestFullscreenSignature();
                 document.getElementById('guestSignFormCard').classList.add('hidden');
                 const successCard = document.getElementById('guestSuccessCard');
                 successCard.classList.remove('hidden');
@@ -5863,6 +6139,7 @@ function deleteProjectFile(req) {
                     closeCloudSettingsModal();
                     closeCloudProjectsModal();
                     closeGuestQrModal();
+                    closeGuestFullscreenSignature();
                     closeCommercialWelcomeModal(true);
                     closeAccountPopover();
                 }
