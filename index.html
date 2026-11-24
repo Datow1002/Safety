@@ -24,6 +24,8 @@
     <!-- PDF & Image Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- QR Code Generator for Guest Mobile Signing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Google Identity Services (Commercial OAuth 2.0) -->
     <script src="https://accounts.google.com/gsi/client" async="" defer=""></script>
 
@@ -139,6 +141,8 @@
 
         /* Strictly lock fullscreen signature modal against pinch-zoom, double-tap zoom, and scroll drift */
         .z-\[112\] { z-index: 112; }
+        .z-\[113\] { z-index: 113; }
+        .to-emerald-950 { --tw-gradient-to: #022c22 var(--tw-gradient-to-position); }
         .bg-slate-50\/70 { background-color: rgb(248 250 252 / 0.7); }
         .items-stretch { align-items: stretch; }
         @media (min-width: 640px) { .sm\:items-center { align-items: center; } }
@@ -166,6 +170,21 @@
             touch-action: manipulation !important;
             -webkit-user-select: text;
             user-select: text;
+        }
+
+        /* QR Code container crisp rendering */
+        #guestQrCodeBox img, #guestQrCodeBox canvas {
+            margin: 0 auto;
+            display: block;
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        /* Guest signature canvas lock */
+        #guestSigCanvas {
+            touch-action: none !important;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         /* Signature Canvas Styling */
@@ -959,6 +978,10 @@
                                 <span>常用施工人員名冊（點名帶入 / 點 ✕ 刪除）</span>
                             </h2>
                             <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" onclick="openGuestQrModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl text-xs shadow-sm transition flex items-center gap-1">
+                                    <i class="fa-solid fa-qrcode"></i>
+                                    <span>工班掃碼簽名 QR</span>
+                                </button>
                                 <button type="button" onclick="openCloudProjectsModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-sm transition">
                                     <i class="fa-solid fa-cloud-arrow-down mr-1"></i>讀取雲端專案
                                 </button>
@@ -1079,11 +1102,16 @@
 
                         <!-- Right: Signed Workers List -->
                         <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+                            <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2">
                                 <h3 class="text-xs sm:text-sm font-black">
                                     <i class="fa-solid fa-clipboard-check text-amber-400 mr-1.5"></i>已完成簽名人員
                                 </h3>
-                                <span id="signedCountPill" class="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-full text-xs">共 1 人</span>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="pollGuestSignaturesNow(false)" class="bg-white/15 hover:bg-white/25 text-white font-bold px-2 py-0.5 rounded-lg text-[11px] transition" title="立即接收工班手機上傳的簽名">
+                                        <i class="fa-solid fa-rotate mr-1"></i>收件
+                                    </button>
+                                    <span id="signedCountPill" class="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-full text-xs">共 1 人</span>
+                                </div>
                             </div>
                             <div id="signedWorkersList" class="p-3 space-y-2 max-h-[420px] overflow-y-auto"></div>
                         </div>
@@ -1555,6 +1583,201 @@
             </div>
             <div id="cloudProjectsModalList" class="p-4 space-y-2.5 overflow-y-auto flex-1"></div>
         </div>
+    </div>
+
+    <!-- ==================== GUEST QR CODE SIGNING MODAL (HOST SIDE) ==================== -->
+    <div id="guestQrModal" class="fixed inset-0 z-[113] hidden items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3">
+        <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col animate-fadeIn">
+            <div class="px-5 py-3.5 bg-gradient-to-r from-slate-900 to-emerald-950 text-white flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-sm font-black flex items-center gap-2">
+                        <i class="fa-solid fa-qrcode text-amber-400"></i>
+                        <span>施工人員 (GUEST) 掃碼自簽 QR Code</span>
+                    </h3>
+                    <p id="qrModalDocSubtitle" class="text-[11px] text-slate-300 mt-0.5">掃描後免登入即可用自己的手機簽名並回傳至本張表單</p>
+                </div>
+                <button type="button" onclick="closeGuestQrModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm shrink-0">✕</button>
+            </div>
+
+            <div class="p-4 space-y-3.5 overflow-y-auto flex-1">
+                <!-- Relay Status Banner -->
+                <div id="qrRelayStatusBanner" class="rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border-emerald-200 text-emerald-900">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <span id="qrRelayDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span id="qrRelayStatusText" class="font-bold leading-snug">即時回傳連線就緒</span>
+                    </div>
+                    <button type="button" onclick="pollGuestSignaturesNow(false)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl text-xs shrink-0 transition">
+                        <i class="fa-solid fa-rotate mr-1"></i>立即收件
+                    </button>
+                </div>
+
+                <!-- QR Code Display Card -->
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center space-y-2.5">
+                    <div class="text-xs font-black text-slate-800">
+                        <span id="qrProjectTitle" class="text-sm text-slate-950"></span>
+                        <span id="qrDocNoTag" class="ml-1.5 font-mono text-[11px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg"></span>
+                    </div>
+                    <div id="guestQrCodeBox" class="bg-white p-3.5 rounded-2xl border-2 border-slate-200 shadow-sm min-h-[210px] min-w-[210px] flex items-center justify-center"></div>
+                    <p class="text-[11px] text-slate-500 font-semibold">請施工人員打開手機相機掃描上方 QR Code，填寫姓名並手寫簽名上傳</p>
+                    <div class="flex flex-wrap items-center justify-center gap-2 w-full pt-1">
+                        <button type="button" onclick="copyGuestSignLink()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 font-black px-3.5 py-2 rounded-xl text-xs transition">
+                            <i class="fa-solid fa-link mr-1"></i>複製簽名連結（傳 LINE）
+                        </button>
+                        <button type="button" onclick="openGuestPreviewInNewTab()" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold px-3 py-2 rounded-xl text-xs transition">
+                            <i class="fa-solid fa-mobile-screen mr-1"></i>預覽賓客簽名畫面
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Received Signatures Counter -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black text-slate-800"><i class="fa-solid fa-users-viewfinder text-blue-600 mr-1"></i>本張表單已簽名人員（自動同步中）</span>
+                        <span id="qrModalSignedCount" class="text-xs font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full">0 人</span>
+                    </div>
+                    <div id="qrModalSignedChips" class="flex flex-wrap gap-1.5 text-xs"></div>
+                </div>
+
+                <!-- Quick Setup for Automatic Cloud Return (Apps Script Relay) -->
+                <details id="qrGasSetupDetails" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs space-y-2.5">
+                    <summary class="font-black text-slate-800 cursor-pointer flex items-center justify-between">
+                        <span><i class="fa-solid fa-bolt text-amber-500 mr-1.5"></i>設定「自動即時回傳」中繼網址（Apps Script）</span>
+                        <span class="text-[11px] text-blue-600 font-bold">展開設定 ▾</span>
+                    </summary>
+                    <div class="pt-2 space-y-2.5 text-slate-600 leading-relaxed">
+                        <p>只要在你的 Google Apps Script 貼上最新版 <code>Code.gs</code> 並部署為「執行身分：<strong>我</strong>、誰可以存取：<strong>所有人</strong>」，把 <code>/exec</code> 網址貼到下方，工班用自己手機掃碼簽完名就會<strong>自動飛回這張表單</strong>（免登入 Google）。</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="copyGasNativeCodeGs()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 font-black px-3 py-2 rounded-xl text-xs">
+                                <i class="fa-solid fa-code mr-1"></i>複製最新版 Code.gs（含賓客回傳 API）
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <input id="qrGasUrlInput" type="text" placeholder="貼上 https://script.google.com/macros/s/xxxx/exec" class="tbm-field flex-1 bg-white border border-slate-300 rounded-xl px-3 font-mono text-slate-900">
+                            <button type="button" onclick="saveGasUrlFromQrModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 rounded-xl text-xs shrink-0">儲存並更新 QR</button>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Offline Return Code Import Fallback -->
+                <details class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs space-y-2">
+                    <summary class="font-bold text-slate-700 cursor-pointer">
+                        <i class="fa-solid fa-paste text-slate-500 mr-1.5"></i>離線備援：手動貼上工班「簽名回傳碼」匯入
+                    </summary>
+                    <div class="pt-2 flex gap-2">
+                        <input id="offlineGuestCodeInput" type="text" placeholder="貼上工班手機產生的 TBM_SIG:... 回傳碼" class="tbm-field flex-1 bg-white border border-slate-300 rounded-xl px-3 font-mono text-slate-900">
+                        <button type="button" onclick="importOfflineGuestCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 rounded-xl text-xs shrink-0">匯入表單</button>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== STANDALONE GUEST MOBILE SIGNING VIEW (Activated via ?guest=1) ==================== -->
+    <div id="guestSigningPage" class="hidden min-h-screen bg-slate-100 flex-col">
+        <!-- Guest Top Header -->
+        <header class="app-top-header sticky top-0 z-40 bg-slate-900 text-white shadow-md">
+            <div class="max-w-xl mx-auto px-4 min-h-[3.5rem] py-2 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-helmet-safety text-lg"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-sm font-black truncate">施工人員 (GUEST) 危害告知簽名</div>
+                        <div id="guestHeaderDocNo" class="text-[11px] text-amber-300 font-mono truncate">單號：-</div>
+                    </div>
+                </div>
+                <button type="button" onclick="cycleUserFontScale()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-black text-slate-200 shrink-0">Aa</button>
+            </div>
+        </header>
+
+        <main class="flex-1 w-full max-w-xl mx-auto px-3.5 py-4 space-y-3.5 pb-10">
+            <!-- Meeting Info Summary Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">今日工具箱會議 TBM-KY</span>
+                    <span id="guestMeetingDate" class="text-xs font-mono font-bold text-slate-500"></span>
+                </div>
+                <h2 id="guestProjectName" class="text-base font-black text-slate-900 leading-snug">載入工程資訊中...</h2>
+                <div class="text-xs text-slate-600 space-y-0.5">
+                    <div><strong>作業地點：</strong><span id="guestLocation">-</span></div>
+                    <div><strong>承攬廠商：</strong><span id="guestDefaultContractor">-</span></div>
+                </div>
+                <!-- Collapsible Hazards & PPE -->
+                <details id="guestBriefDetails" class="pt-2 border-t border-slate-100 text-xs">
+                    <summary class="font-black text-blue-700 cursor-pointer select-none">檢視今日潛在危害與應戴防護具 (PPE) ▾</summary>
+                    <div id="guestBriefContent" class="mt-2 space-y-2 text-slate-700 leading-relaxed"></div>
+                </details>
+            </div>
+
+            <!-- Multi-Language Safety Declaration -->
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2">
+                <div class="grid grid-cols-4 gap-1">
+                    <button type="button" onclick="setGuestDeclLang('zh')" id="gLang-zh" class="py-1.5 rounded-xl text-[11px] font-black bg-slate-900 text-white">繁體中文</button>
+                    <button type="button" onclick="setGuestDeclLang('vi')" id="gLang-vi" class="py-1.5 rounded-xl text-[11px] font-bold bg-white text-slate-700 border border-amber-200">Tiếng Việt</button>
+                    <button type="button" onclick="setGuestDeclLang('id')" id="gLang-id" class="py-1.5 rounded-xl text-[11px] font-bold bg-white text-slate-700 border border-amber-200">Indonesia</button>
+                    <button type="button" onclick="setGuestDeclLang('en')" id="gLang-en" class="py-1.5 rounded-xl text-[11px] font-bold bg-white text-slate-700 border border-amber-200">English</button>
+                </div>
+                <p id="guestDeclBody" class="text-xs text-slate-800 leading-relaxed font-medium"></p>
+            </div>
+
+            <!-- Guest Signer Form + Signature Pad -->
+            <div id="guestSignFormCard" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="min-w-0">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">您的姓名 <span class="text-rose-500">*</span></label>
+                        <input id="guestInputName" type="text" placeholder="請輸入真實姓名" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <div class="min-w-0">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">所屬廠商</label>
+                        <input id="guestInputContractor" type="text" placeholder="例如：孟義工程有限公司" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <div class="min-w-0 sm:col-span-2">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">工種 / 職稱</label>
+                        <input id="guestInputRole" type="text" value="施工人員" class="tbm-field bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                </div>
+
+                <!-- Signature Pad -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-black text-slate-800">親筆手寫簽名區 <span class="text-rose-500">*</span></label>
+                        <button type="button" onclick="clearGuestCanvas()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded-xl text-xs">
+                            <i class="fa-solid fa-eraser mr-1"></i>清除重簽
+                        </button>
+                    </div>
+                    <div class="relative w-full h-56 rounded-2xl border-2 border-dashed border-slate-300 overflow-hidden bg-white">
+                        <canvas id="guestSigCanvas" class="sig-canvas-grid w-full h-full block cursor-crosshair"></canvas>
+                        <div id="guestSigPlaceholder" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-slate-400 select-none">
+                            <i class="fa-solid fa-signature text-3xl mb-1 opacity-60"></i>
+                            <span class="text-xs font-bold">請用手指在此處親筆簽名</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" id="btnGuestSubmitSig" onclick="submitGuestSignature()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-5 rounded-2xl text-sm shadow-md transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>確認簽名並上傳回表單</span>
+                </button>
+            </div>
+
+            <!-- Guest Submission Success Card -->
+            <div id="guestSuccessCard" class="hidden bg-emerald-50 border-2 border-emerald-400 rounded-3xl p-5 text-center space-y-3 animate-fadeIn">
+                <div class="w-14 h-14 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center text-2xl shadow">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h3 id="guestSuccessTitle" class="text-base font-black text-emerald-950">簽名已成功上傳並回傳至表單！</h3>
+                <p id="guestSuccessDesc" class="text-xs text-emerald-800 leading-relaxed"></p>
+                <div id="guestOfflineCodeBox" class="hidden space-y-2 pt-2">
+                    <textarea id="guestOfflineCodeText" rows="3" readonly="" class="w-full bg-white border border-emerald-300 rounded-xl p-2.5 font-mono text-xs text-slate-800"></textarea>
+                    <button type="button" onclick="copyGuestOfflineCode()" class="w-full bg-slate-900 text-amber-400 font-black py-2.5 rounded-xl text-xs">
+                        <i class="fa-solid fa-copy mr-1"></i>複製簽名回傳碼（傳給主辦人員）
+                    </button>
+                </div>
+                <button type="button" onclick="resetGuestForNextWorker()" class="w-full bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-black py-2.5 rounded-xl text-xs">
+                    換下一位同事使用此手機簽名
+                </button>
+            </div>
+        </main>
     </div>
 
     <!-- ==================== IN-PAGE CONFIRMATION MODAL (No browser confirm()) ==================== -->
@@ -4585,7 +4808,7 @@
 
             const cloned = document.documentElement.cloneNode(true);
             cloned.querySelector('body')?.classList.remove('lock-scroll');
-            ['soloFullscreenModal', 'passAroundModal', 'voiceBriefingModal', 'rosterModal', 'commercialWelcomeModal', 'cloudSettingsModal', 'cloudProjectsModal', 'confirmDialogModal', 'accountPopover'].forEach(id => {
+            ['soloFullscreenModal', 'passAroundModal', 'voiceBriefingModal', 'rosterModal', 'commercialWelcomeModal', 'cloudSettingsModal', 'cloudProjectsModal', 'guestQrModal', 'confirmDialogModal', 'accountPopover'].forEach(id => {
                 const el = cloned.querySelector('#' + id);
                 if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
             });
@@ -4620,11 +4843,70 @@
 const FOLDER_NAME = '工安工具箱會議_個人歸檔';
 const DB_FILE = 'TBM_PERSONAL_DB_V5.json';
 
-function doGet() {
+function doGet(e) {
+  const action = e && e.parameter ? e.parameter.action : '';
+  if (action === 'getGuestSigs') {
+    const docNo = String(e.parameter.docNo || '').replace(/[^A-Za-z0-9_-]/g, '');
+    return jsonResp_({ ok: true, signatures: readJsonInFolder_('GUEST_SIGS_' + docNo + '.json', []) });
+  }
+  if (action === 'getMeetingBrief') {
+    const docNo = String(e.parameter.docNo || '').replace(/[^A-Za-z0-9_-]/g, '');
+    return jsonResp_({ ok: true, brief: readJsonInFolder_('GUEST_BRIEF_' + docNo + '.json', null) });
+  }
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('工安危害告知與工具箱會議系統')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const body = JSON.parse((e && e.postData && e.postData.contents) ? e.postData.contents : '{}');
+    const action = body.action || '';
+    const docNo = String(body.docNo || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (action === 'submitGuestSig' && docNo && body.signature) {
+      const fname = 'GUEST_SIGS_' + docNo + '.json';
+      const list = readJsonInFolder_(fname, []);
+      if (!list.some(function(s) { return s.id === body.signature.id; })) {
+        list.push(body.signature);
+        writeJsonInFolder_(fname, list);
+      }
+      return jsonResp_({ ok: true, count: list.length });
+    }
+    if (action === 'saveMeetingBrief' && docNo && body.brief) {
+      writeJsonInFolder_('GUEST_BRIEF_' + docNo + '.json', body.brief);
+      return jsonResp_({ ok: true });
+    }
+    if (action === 'uploadPdf' && body.filename && body.base64) {
+      return jsonResp_(uploadPersonalPdf(body));
+    }
+    return jsonResp_({ ok: false, error: 'Unknown action' });
+  } catch (err) {
+    return jsonResp_({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function jsonResp_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function readJsonInFolder_(filename, fallback) {
+  const folder = getOrCreateFolder_();
+  const it = folder.getFilesByName(filename);
+  if (!it.hasNext()) return fallback;
+  try { return JSON.parse(it.next().getBlob().getDataAsString('UTF-8')); } catch (e) { return fallback; }
+}
+
+function writeJsonInFolder_(filename, obj) {
+  const folder = getOrCreateFolder_();
+  const content = JSON.stringify(obj);
+  const it = folder.getFilesByName(filename);
+  if (it.hasNext()) { it.next().setContent(content); }
+  else { folder.createFile(filename, content, MimeType.PLAIN_TEXT); }
 }
 
 function getOrCreateFolder_() {
@@ -4692,11 +4974,564 @@ function deleteProjectFile(req) {
         }
 
         // =========================================================================
+        // 14B. GUEST QR CODE SIGNING & REAL-TIME RETURN ENGINE
+        // =========================================================================
+        let guestPollInterval = null;
+        let guestSigCanvas = null;
+        let guestSigCtx = null;
+        let guestHasInk = false;
+        let guestPageParams = null;
+
+        function getCleanBasePageUrl() {
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+            return url.toString();
+        }
+
+        function buildGuestSigningUrl() {
+            const m = window.currentMeeting;
+            const gasUrl = getConfiguredGasUrl();
+            const params = new URLSearchParams();
+            params.set('guest', '1');
+            params.set('docNo', m.docNo || '');
+            if (m.projectName) params.set('proj', m.projectName.slice(0, 32));
+            if (m.location) params.set('loc', m.location.slice(0, 24));
+            if (m.date) params.set('date', m.date);
+            if (m.contractor) params.set('contractor', m.contractor.slice(0, 24));
+            if (isValidGasUrl(gasUrl)) params.set('gas', gasUrl);
+            return `${getCleanBasePageUrl()}?${params.toString()}`;
+        }
+
+        async function pushMeetingBriefToGas(gasUrl) {
+            if (!isValidGasUrl(gasUrl) || !window.currentMeeting) return;
+            const m = window.currentMeeting;
+            const payload = {
+                action: 'saveMeetingBrief',
+                docNo: m.docNo,
+                brief: {
+                    docNo: m.docNo,
+                    projectName: m.projectName || '',
+                    location: m.location || '',
+                    date: m.date || '',
+                    time: m.time || '',
+                    contractor: m.contractor || '',
+                    hazards: m.hazards || [],
+                    measures: m.measures || [],
+                    ppe: m.ppe || [],
+                    notes: m.notes || ''
+                }
+            };
+            try {
+                await fetch(gasUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (e) {
+                try {
+                    await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (err) {}
+            }
+        }
+
+        function renderGuestQrCodeNow() {
+            const m = window.currentMeeting;
+            const box = document.getElementById('guestQrCodeBox');
+            const titleEl = document.getElementById('qrProjectTitle');
+            const docEl = document.getElementById('qrDocNoTag');
+            const gasInput = document.getElementById('qrGasUrlInput');
+            const statusBanner = document.getElementById('qrRelayStatusBanner');
+            const statusDot = document.getElementById('qrRelayDot');
+            const statusText = document.getElementById('qrRelayStatusText');
+            const setupDetails = document.getElementById('qrGasSetupDetails');
+
+            if (titleEl) titleEl.textContent = m.projectName || '（未命名工程）';
+            if (docEl) docEl.textContent = m.docNo;
+            if (gasInput) gasInput.value = getConfiguredGasUrl();
+
+            const gasUrl = getConfiguredGasUrl();
+            const hasRelay = isValidGasUrl(gasUrl);
+            if (hasRelay) {
+                statusBanner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border-emerald-200 text-emerald-900';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
+                statusText.textContent = '已連線自動回傳通道！工班掃碼簽完名後，約 3～5 秒自動回傳到本張表單';
+                if (setupDetails) setupDetails.open = false;
+            } else {
+                statusBanner.className = 'rounded-2xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 bg-amber-50 border-amber-200 text-amber-950';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0';
+                statusText.textContent = '尚未設定自動回傳網址（目前為離線回傳碼模式）。展開下方貼上 Apps Script 網址即可全自動回傳';
+                if (setupDetails) setupDetails.open = true;
+            }
+
+            const qrUrl = buildGuestSigningUrl();
+            if (box) {
+                box.innerHTML = '';
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(box, {
+                        text: qrUrl,
+                        width: 210,
+                        height: 210,
+                        colorDark: '#0f172a',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } else {
+                    box.innerHTML = '<div class="text-xs text-rose-600 font-bold p-4">QR 產生元件載入中，請確認網路連線後重新開啟</div>';
+                }
+            }
+            renderQrModalSignedChips();
+        }
+
+        function renderQrModalSignedChips() {
+            const sigs = window.currentMeeting?.signatures || [];
+            const countEl = document.getElementById('qrModalSignedCount');
+            const chipsEl = document.getElementById('qrModalSignedChips');
+            if (countEl) countEl.textContent = `${sigs.length} 人`;
+            if (!chipsEl) return;
+            if (sigs.length === 0) {
+                chipsEl.innerHTML = '<span class="text-slate-400">等待施工人員掃碼簽名...</span>';
+                return;
+            }
+            chipsEl.innerHTML = sigs.map(s => `
+                <span class="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-2.5 py-1 rounded-xl">
+                    <i class="fa-solid fa-check text-emerald-600 text-[10px]"></i>
+                    <span>${escapeHtml(s.name)}</span>
+                    <span class="text-[10px] opacity-70">${escapeHtml(s.time || '')}</span>
+                </span>
+            `).join('');
+        }
+
+        function openGuestQrModal() {
+            window.currentMeeting.isDefaultUnmodified = false;
+            persistAllStateImmediately(false);
+
+            const modal = document.getElementById('guestQrModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderGuestQrCodeNow();
+
+            const gasUrl = getConfiguredGasUrl();
+            if (isValidGasUrl(gasUrl)) {
+                pushMeetingBriefToGas(gasUrl);
+                pollGuestSignaturesNow(true);
+                if (guestPollInterval) clearInterval(guestPollInterval);
+                guestPollInterval = setInterval(() => {
+                    pollGuestSignaturesNow(true);
+                }, 4000);
+            }
+        }
+
+        function closeGuestQrModal() {
+            const modal = document.getElementById('guestQrModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (guestPollInterval) {
+                clearInterval(guestPollInterval);
+                guestPollInterval = null;
+            }
+        }
+
+        function copyGuestSignLink() {
+            const url = buildGuestSigningUrl();
+            copyTextSafe(url);
+            showToast('✅ 已複製工班專屬簽名連結，可直接貼到 LINE 群組！', 'success');
+        }
+
+        function openGuestPreviewInNewTab() {
+            window.open(buildGuestSigningUrl(), '_blank', 'noopener');
+        }
+
+        function saveGasUrlFromQrModal() {
+            const val = document.getElementById('qrGasUrlInput')?.value.trim() || '';
+            if (val && !isValidGasUrl(val)) {
+                showToast('網址格式不正確！請確認結尾為 /exec 的 Apps Script 網頁應用程式網址', 'error');
+                return;
+            }
+            try { localStorage.setItem(STORAGE_KEYS.GAS_URL, val); } catch (e) {}
+            const settingsInput = document.getElementById('gasUrlInput');
+            if (settingsInput) settingsInput.value = val;
+            renderGuestQrCodeNow();
+            if (isValidGasUrl(val)) {
+                pushMeetingBriefToGas(val);
+                pollGuestSignaturesNow(true);
+                if (guestPollInterval) clearInterval(guestPollInterval);
+                guestPollInterval = setInterval(() => pollGuestSignaturesNow(true), 4000);
+                showToast('✅ 已啟用自動即時回傳，QR Code 已同步更新！', 'success');
+            } else {
+                showToast('已清除中繼網址，切換為離線回傳碼模式', 'info');
+            }
+        }
+
+        async function pollGuestSignaturesNow(silent = false) {
+            const gasUrl = getConfiguredGasUrl();
+            if (!isValidGasUrl(gasUrl)) {
+                if (!silent) showToast('尚未設定自動回傳網址，請點「工班掃碼簽名 QR」進行設定', 'info');
+                return;
+            }
+            const docNo = window.currentMeeting?.docNo;
+            if (!docNo) return;
+            try {
+                const sep = gasUrl.includes('?') ? '&' : '?';
+                const res = await fetch(`${gasUrl}${sep}action=getGuestSigs&docNo=${encodeURIComponent(docNo)}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('無法連線至中繼後台');
+                const data = await res.json();
+                const incoming = Array.isArray(data?.signatures) ? data.signatures : [];
+                let addedCount = 0;
+                const existingIds = new Set((window.currentMeeting.signatures || []).map(s => s.id));
+                incoming.forEach(sig => {
+                    if (sig && sig.id && sig.name && sig.signatureDataUrl && !existingIds.has(sig.id)) {
+                        window.currentMeeting.isDefaultUnmodified = false;
+                        window.currentMeeting.signatures.push(sig);
+                        existingIds.add(sig.id);
+                        addedCount++;
+                        if (document.getElementById('autoSaveWorkerToRoster')?.checked) {
+                            if (!window.workerRoster.some(w => w.name === sig.name)) {
+                                window.workerRoster.push({ name: sig.name, contractor: sig.contractor || '', role: sig.role || '施工人員' });
+                            }
+                        }
+                    }
+                });
+                if (addedCount > 0) {
+                    renderRosterChips();
+                    renderSignedWorkersList();
+                    renderQrModalSignedChips();
+                    persistAllStateImmediately(true);
+                    showToast(`📥 已自動接收 ${addedCount} 筆工班手機簽名！`, 'success');
+                } else if (!silent) {
+                    showToast('目前尚無新的工班手機簽名', 'info');
+                }
+            } catch (e) {
+                if (!silent) showToast('接收賓客簽名失敗：' + (e.message || e), 'error');
+            }
+        }
+
+        function importOfflineGuestCode() {
+            const inp = document.getElementById('offlineGuestCodeInput');
+            const raw = (inp?.value || '').trim();
+            if (!raw) {
+                showToast('請先貼上工班手機產生的簽名回傳碼', 'error');
+                return;
+            }
+            try {
+                const cleaned = raw.startsWith('TBM_SIG:') ? raw.slice(8) : raw;
+                const jsonStr = decodeURIComponent(escape(atob(cleaned)));
+                const sig = JSON.parse(jsonStr);
+                if (!sig || !sig.name || !sig.signatureDataUrl) throw new Error('資料不完整');
+                if (sig.docNo && sig.docNo !== window.currentMeeting.docNo) {
+                    showToast(`提醒：此簽名屬於單號 ${sig.docNo}，已匯入目前表單`, 'info');
+                }
+                const exists = (window.currentMeeting.signatures || []).some(s => s.id === sig.id);
+                if (!exists) {
+                    window.currentMeeting.isDefaultUnmodified = false;
+                    window.currentMeeting.signatures.push({
+                        id: sig.id || ('gsig_' + Date.now()),
+                        name: sig.name,
+                        contractor: sig.contractor || window.currentMeeting.contractor || '-',
+                        role: sig.role || '施工人員',
+                        time: sig.time || getLocalTimeString(),
+                        signatureDataUrl: sig.signatureDataUrl
+                    });
+                    renderRosterChips();
+                    renderSignedWorkersList();
+                    renderQrModalSignedChips();
+                    persistAllStateImmediately(true);
+                }
+                inp.value = '';
+                showToast(`✅ 已匯入「${sig.name}」的簽名！`, 'success');
+            } catch (e) {
+                showToast('回傳碼格式無效，請確認是否完整複製', 'error');
+            }
+        }
+
+        // ---- GUEST MOBILE PAGE INITIALIZATION & DRAWING ----
+        function isGuestModeUrl() {
+            const p = new URLSearchParams(window.location.search);
+            return p.get('guest') === '1' && !!p.get('docNo');
+        }
+
+        function setGuestDeclLang(lang) {
+            ['zh', 'vi', 'id', 'en'].forEach(l => {
+                const btn = document.getElementById(`gLang-${l}`);
+                if (btn) {
+                    btn.className = (l === lang)
+                        ? 'py-1.5 rounded-xl text-[11px] font-black bg-slate-900 text-white'
+                        : 'py-1.5 rounded-xl text-[11px] font-bold bg-white text-slate-700 border border-amber-200';
+                }
+            });
+            const dec = PASS_AROUND_DECLARATIONS[lang] || PASS_AROUND_DECLARATIONS.zh;
+            const bodyEl = document.getElementById('guestDeclBody');
+            if (bodyEl) bodyEl.textContent = dec.body;
+        }
+
+        function initGuestCanvas() {
+            guestSigCanvas = document.getElementById('guestSigCanvas');
+            if (!guestSigCanvas) return;
+            guestSigCtx = guestSigCanvas.getContext('2d');
+            resizeCanvasPreserveInk(guestSigCanvas, guestSigCtx);
+
+            let drawing = false;
+            let lastX = 0, lastY = 0;
+            const getPos = (e) => {
+                const rect = guestSigCanvas.getBoundingClientRect();
+                const pt = e.touches ? e.touches[0] : e;
+                return { x: pt.clientX - rect.left, y: pt.clientY - rect.top };
+            };
+            const start = (e) => {
+                if (e.touches && e.touches.length > 1) { e.preventDefault(); drawing = false; return; }
+                e.preventDefault();
+                drawing = true;
+                const pos = getPos(e);
+                lastX = pos.x; lastY = pos.y;
+                guestSigCtx.strokeStyle = '#0f172a';
+                guestSigCtx.lineWidth = 3.6;
+                guestSigCtx.lineCap = 'round';
+                guestSigCtx.lineJoin = 'round';
+                guestSigCtx.beginPath();
+                guestSigCtx.moveTo(lastX, lastY);
+                guestSigCtx.lineTo(lastX + 0.1, lastY + 0.1);
+                guestSigCtx.stroke();
+                guestHasInk = true;
+                document.getElementById('guestSigPlaceholder')?.classList.add('hidden');
+            };
+            const move = (e) => {
+                if (e.touches && e.touches.length > 1) { e.preventDefault(); drawing = false; return; }
+                if (!drawing) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                guestSigCtx.beginPath();
+                guestSigCtx.moveTo(lastX, lastY);
+                guestSigCtx.lineTo(pos.x, pos.y);
+                guestSigCtx.stroke();
+                lastX = pos.x; lastY = pos.y;
+            };
+            const end = () => { drawing = false; };
+
+            guestSigCanvas.addEventListener('mousedown', start);
+            guestSigCanvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            guestSigCanvas.addEventListener('touchstart', start, { passive: false });
+            guestSigCanvas.addEventListener('touchmove', move, { passive: false });
+            guestSigCanvas.addEventListener('touchend', end);
+        }
+
+        function clearGuestCanvas() {
+            if (!guestSigCanvas || !guestSigCtx) return;
+            guestSigCtx.save();
+            guestSigCtx.setTransform(1, 0, 0, 1, 0, 0);
+            guestSigCtx.clearRect(0, 0, guestSigCanvas.width, guestSigCanvas.height);
+            guestSigCtx.restore();
+            guestHasInk = false;
+            document.getElementById('guestSigPlaceholder')?.classList.remove('hidden');
+        }
+
+        function compressSignatureForTransfer(canvas) {
+            const rawUrl = cropSignatureCanvasToDataUrl(canvas);
+            if (!rawUrl) return Promise.resolve(null);
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxW = 420;
+                    const scale = Math.min(1, maxW / img.width);
+                    const c = document.createElement('canvas');
+                    c.width = Math.max(10, Math.round(img.width * scale));
+                    c.height = Math.max(10, Math.round(img.height * scale));
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    resolve(c.toDataURL('image/png'));
+                };
+                img.onerror = () => resolve(rawUrl);
+                img.src = rawUrl;
+            });
+        }
+
+        async function bootstrapGuestSigningMode() {
+            const p = new URLSearchParams(window.location.search);
+            guestPageParams = {
+                docNo: p.get('docNo') || '',
+                proj: p.get('proj') || '工安危害告知與工具箱會議',
+                loc: p.get('loc') || '-',
+                date: p.get('date') || getLocalDateString(),
+                contractor: p.get('contractor') || '',
+                gas: p.get('gas') || getConfiguredGasUrl()
+            };
+
+            // Hide Host UI & Show Guest Page
+            document.querySelector('header')?.classList.add('hidden');
+            document.getElementById('mainWorkspace')?.classList.add('hidden');
+            document.querySelector('nav.lg\:hidden')?.classList.add('hidden');
+            document.body.classList.remove('pb-24', 'lg:pb-8');
+
+            const guestPage = document.getElementById('guestSigningPage');
+            guestPage.classList.remove('hidden');
+            guestPage.classList.add('flex');
+
+            document.getElementById('guestHeaderDocNo').textContent = `單號：${guestPageParams.docNo}`;
+            document.getElementById('guestProjectName').textContent = guestPageParams.proj;
+            document.getElementById('guestLocation').textContent = guestPageParams.loc;
+            document.getElementById('guestMeetingDate').textContent = guestPageParams.date;
+            document.getElementById('guestDefaultContractor').textContent = guestPageParams.contractor || '-';
+            if (guestPageParams.contractor) {
+                document.getElementById('guestInputContractor').value = guestPageParams.contractor;
+            }
+            setGuestDeclLang('zh');
+            requestAnimationFrame(() => initGuestCanvas());
+
+            // Fetch full meeting hazards & PPE from GAS if available
+            const briefEl = document.getElementById('guestBriefContent');
+            if (isValidGasUrl(guestPageParams.gas)) {
+                try {
+                    const sep = guestPageParams.gas.includes('?') ? '&' : '?';
+                    const res = await fetch(`${guestPageParams.gas}${sep}action=getMeetingBrief&docNo=${encodeURIComponent(guestPageParams.docNo)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const b = data?.brief;
+                        if (b) {
+                            if (b.projectName) document.getElementById('guestProjectName').textContent = b.projectName;
+                            if (b.location) document.getElementById('guestLocation').textContent = b.location;
+                            if (b.contractor) {
+                                document.getElementById('guestDefaultContractor').textContent = b.contractor;
+                                if (!document.getElementById('guestInputContractor').value) {
+                                    document.getElementById('guestInputContractor').value = b.contractor;
+                                }
+                            }
+                            const hazHtml = (b.hazards || []).map((h, i) => `<div>${i + 1}. ${escapeHtml(h)}</div>`).join('');
+                            const ppeHtml = (b.ppe || []).join('、');
+                            briefEl.innerHTML = `
+                                ${ppeHtml ? `<div><strong>應戴防護具：</strong>${escapeHtml(ppeHtml)}</div>` : ''}
+                                ${hazHtml ? `<div class="mt-1.5"><strong>潛在危害：</strong>${hazHtml}</div>` : ''}
+                            `;
+                        }
+                    }
+                } catch (e) {}
+            }
+            if (!briefEl.innerHTML.trim()) {
+                briefEl.innerHTML = '<div class="text-slate-500">請依現場主持人宣讀之危害告知事項與個人防護具規定確實遵守。</div>';
+            }
+
+            window.addEventListener('resize', () => {
+                if (guestSigCanvas && guestSigCtx) resizeCanvasPreserveInk(guestSigCanvas, guestSigCtx);
+            });
+        }
+
+        async function submitGuestSignature() {
+            const name = document.getElementById('guestInputName').value.trim();
+            const contractor = document.getElementById('guestInputContractor').value.trim() || guestPageParams?.contractor || '-';
+            const role = document.getElementById('guestInputRole').value.trim() || '施工人員';
+
+            if (!name) {
+                showToast('請先輸入您的姓名！', 'error');
+                return;
+            }
+            if (!guestHasInk) {
+                showToast('請先在白色簽名板上親筆簽名！', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnGuestSubmitSig');
+            if (btn) btn.disabled = true;
+            showToast('⏳ 正在上傳簽名至表單...', 'info');
+
+            try {
+                const sigDataUrl = await compressSignatureForTransfer(guestSigCanvas);
+                if (!sigDataUrl) {
+                    showToast('簽名內容為空，請重新簽名', 'error');
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+
+                const sigRecord = {
+                    id: 'gsig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    docNo: guestPageParams.docNo,
+                    name: name,
+                    contractor: contractor,
+                    role: role,
+                    time: getLocalTimeString(),
+                    signatureDataUrl: sigDataUrl
+                };
+
+                const gasUrl = guestPageParams.gas;
+                let uploadedOnline = false;
+
+                if (isValidGasUrl(gasUrl)) {
+                    const bodyStr = JSON.stringify({
+                        action: 'submitGuestSig',
+                        docNo: guestPageParams.docNo,
+                        signature: sigRecord
+                    });
+                    try {
+                        const res = await fetch(gasUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: bodyStr
+                        });
+                        if (res.ok) uploadedOnline = true;
+                    } catch (err) {
+                        await fetch(gasUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: bodyStr
+                        });
+                        uploadedOnline = true;
+                    }
+                }
+
+                document.getElementById('guestSignFormCard').classList.add('hidden');
+                const successCard = document.getElementById('guestSuccessCard');
+                successCard.classList.remove('hidden');
+
+                if (uploadedOnline) {
+                    document.getElementById('guestSuccessTitle').textContent = `✅ ${name}，簽名已上傳回表單！`;
+                    document.getElementById('guestSuccessDesc').textContent = `您的簽名已回傳至單號 ${guestPageParams.docNo}，主辦人員畫面將於幾秒內自動顯示。`;
+                    document.getElementById('guestOfflineCodeBox').classList.add('hidden');
+                    showToast('✅ 簽名上傳成功！', 'success');
+                } else {
+                    const code = 'TBM_SIG:' + btoa(unescape(encodeURIComponent(JSON.stringify(sigRecord))));
+                    document.getElementById('guestSuccessTitle').textContent = `✅ ${name}，已完成簽名！`;
+                    document.getElementById('guestSuccessDesc').textContent = '目前主辦端尚未啟用自動雲端中繼，請點下方按鈕複製回傳碼並傳送給現場主辦人員即可匯入表單。';
+                    document.getElementById('guestOfflineCodeText').value = code;
+                    document.getElementById('guestOfflineCodeBox').classList.remove('hidden');
+                    showToast('已產生離線簽名回傳碼', 'info');
+                }
+            } catch (e) {
+                showToast('上傳失敗：' + (e.message || e), 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        function copyGuestOfflineCode() {
+            const val = document.getElementById('guestOfflineCodeText')?.value || '';
+            if (!val) return;
+            copyTextSafe(val);
+            showToast('✅ 已複製簽名回傳碼！', 'success');
+        }
+
+        function resetGuestForNextWorker() {
+            document.getElementById('guestInputName').value = '';
+            clearGuestCanvas();
+            document.getElementById('guestSuccessCard').classList.add('hidden');
+            document.getElementById('guestSignFormCard').classList.remove('hidden');
+            requestAnimationFrame(() => resizeCanvasPreserveInk(guestSigCanvas, guestSigCtx));
+        }
+
+        // =========================================================================
         // 15. APPLICATION BOOTSTRAP & LIFECYCLE HANDLERS
         // =========================================================================
         window.addEventListener('DOMContentLoaded', async () => {
             initWebAppManifest();
             initDeviceFontScaling();
+            if (isGuestModeUrl()) {
+                await bootstrapGuestSigningMode();
+                return;
+            }
             initSignatureCanvases();
             await restoreAllLocalState();
             syncFormFromCurrentMeeting();
@@ -4748,6 +5583,7 @@ function deleteProjectFile(req) {
                     closeRosterModal();
                     closeCloudSettingsModal();
                     closeCloudProjectsModal();
+                    closeGuestQrModal();
                     closeCommercialWelcomeModal(true);
                     closeAccountPopover();
                 }
